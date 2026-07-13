@@ -22,6 +22,7 @@ import { TEMPLATES, insertTemplate } from './milkdown-templates'
 import { positionFloating, setShow } from './milkdown-floating'
 import { insertBlock } from '../../lib/milkdown/insert-block'
 import { insertMermaid } from './milkdown-mermaid'
+import { insertPlantuml } from './milkdown-plantuml'
 import { insertChart } from './milkdown-chart'
 import { insertTabs } from './milkdown-tabs'
 import { insertKanban } from './milkdown-kanban'
@@ -68,6 +69,7 @@ const RUN: Record<string, (ctx: Ctx) => void> = {
     ctx.get(commandsCtx).call(insertTableCommand.key, { row: 3, col: 2 }),
   equation: insertMathBlock,
   mermaid: insertMermaid,
+  plantuml: insertPlantuml,
   chart: insertChart,
   embed: insertEmbed,
   tabs: insertTabs,

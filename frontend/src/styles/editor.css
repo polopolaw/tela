@@ -1726,6 +1726,75 @@
     font-size: var(--text-sm);
   }
 
+  /* PlantUML diagram preview (Kroki-backed). */
+  .tela-plantuml-wrap {
+    position: relative;
+    margin: var(--space-3) 0 var(--space-4);
+  }
+  .tela-milkdown .tela-plantuml {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+  }
+  .tela-milkdown .tela-plantuml svg {
+    max-width: 100%;
+    height: auto;
+  }
+  .tela-milkdown .tela-plantuml-error {
+    color: var(--danger);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+  .tela-plantuml-edit-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    line-height: var(--leading-tight);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+    pointer-events: none;
+    pointer-events: none;
+  }
+  .tela-milkdown [contenteditable='true'] .tela-plantuml-wrap:hover .tela-plantuml-edit-btn,
+  .tela-milkdown [contenteditable='true'] .tela-plantuml-wrap:focus-within .tela-plantuml-edit-btn {
+    opacity: 1;
+  }
+  .tela-plantuml-sheet-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    min-height: 0;
+  }
+  @media (max-width: 768px) {
+    .tela-plantuml-sheet-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+  .tela-plantuml-sheet-code {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    padding: var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    color: var(--text-primary);
+  }
+  .tela-plantuml-sheet-preview {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+    padding: var(--space-3);
+  }
+
   /* Highlight mark (==text==). Theme-aware translucent wash off the warning
      (amber) token — works over light + dark surfaces without a new token. */
   .tela-milkdown .ProseMirror mark.tela-highlight {

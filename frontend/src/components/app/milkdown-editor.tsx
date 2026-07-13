@@ -78,6 +78,13 @@ import {
   toggleHighlightCommand,
 } from './milkdown-highlight'
 import { mermaidPlugin } from './milkdown-mermaid'
+import {
+  plantumlClickPlugin,
+  plantumlOpenCtx,
+  plantumlPlugin,
+  type PlantumlOpenHandler,
+  type PlantumlOpenRequest,
+} from './milkdown-plantuml'
 import { chartPlugin } from './milkdown-chart'
 import { typographyInputRules } from './milkdown-typography'
 import { listIndentKeymap } from './milkdown-list-indent'
@@ -164,6 +171,11 @@ import type { PageListItem } from '../../lib/types'
 const ExcalidrawEditSheet = lazy(() =>
   import('./excalidraw-edit-sheet').then((m) => ({
     default: m.ExcalidrawEditSheet,
+  })),
+)
+const PlantumlEditSheet = lazy(() =>
+  import('./plantuml-edit-sheet').then((m) => ({
+    default: m.PlantumlEditSheet,
   })),
 )
 import {
@@ -338,6 +350,8 @@ function MilkdownEditorInner({
   // invoked in those modes.
   const [excalidrawSheet, setExcalidrawSheet] =
     useState<ExcalidrawOpenRequest | null>(null)
+  const [plantumlSheet, setPlantumlSheet] =
+    useState<PlantumlOpenRequest | null>(null)
   // SPIKE — live multiplayer Excalidraw session for the open diagram. State is
   // declared here with the other sheet state; the effect that builds it lives
   // below the collab provider setup (it reads the collab session).
@@ -531,6 +545,11 @@ function MilkdownEditorInner({
             ? null
             : (req) => setExcalidrawSheet(req)
         ctx.set(excalidrawOpenCtx.key, openTrampoline)
+        const plantumlTrampoline: PlantumlOpenHandler | null =
+          wikilinkMode === 'share' || readOnly
+            ? null
+            : (req) => setPlantumlSheet(req)
+        ctx.set(plantumlOpenCtx.key, plantumlTrampoline)
         // Emoji picker open-handler — same gating as the excalidraw sheet:
         // off in share / read-only, where the slash menu (and thus the
         // "Emoji" item) isn't mounted anyway. `setEmojiPicker` is
@@ -759,6 +778,9 @@ function MilkdownEditorInner({
       .use(toggleHighlightCommand)
       // Mermaid: renders a diagram below each ```mermaid code block (lazy lib).
       .use(mermaidPlugin)
+      .use(plantumlOpenCtx)
+      .use(plantumlPlugin)
+      .use(plantumlClickPlugin)
       // Chart: renders an interactive ECharts chart below each ```chart code
       // block (lazy lib + YAML). Themed from --chart-* tokens. See
       // milkdown-chart.ts.
@@ -1202,6 +1224,25 @@ function MilkdownEditorInner({
               // leadership; the PATCH is debounced downstream so it coalesces
               // with the leader's own save in the common case. Checkpoints are
               // leader-gated + dedup'd in the Sheet, so this isn't per-keystroke.
+              const editor = get()
+              editor?.action((ctx) => {
+                const view = ctx.get(editorViewCtx)
+                callbacks.current.onChange(ctx.get(serializerCtx)(view.state.doc))
+              })
+            }}
+          />
+        </Suspense>
+      ) : null}
+      {plantumlSheet ? (
+        <Suspense fallback={null}>
+          <PlantumlEditSheet
+            open
+            onOpenChange={(next) => {
+              if (!next) setPlantumlSheet(null)
+            }}
+            initialCode={plantumlSheet.code}
+            onSave={(nextCode) => {
+              plantumlSheet.onSave(nextCode)
               const editor = get()
               editor?.action((ctx) => {
                 const view = ctx.get(editorViewCtx)

@@ -189,6 +189,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pages/{id}/pdf", srv.ExportPagePDF)
 	mux.HandleFunc("GET /api/pages/{id}/md", srv.ExportPageMarkdown)
 	mux.HandleFunc("GET /api/print/{token}", srv.GetPrintPage)
+	mux.HandleFunc("POST /api/print/{token}/render/plantuml", srv.RenderPlantumlPrint)
 	// Deck (Slidev) pages. Present is the live interactive SPA (page-scoped +
 	// membership-gated via requirePageRead). The PNG asset proxy is public
 	// (content-addressed renderId, no notes); the rest session-authed.
@@ -239,7 +240,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 
 	// URL unfurl for paste-as-titled-link. Session-authed (makes an outbound
 	// SSRF-guarded request); never public.
-	mux.HandleFunc("GET /api/unfurl", srv.Unfurl)
+	mux.HandleFunc("POST /api/render/plantuml", srv.RenderPlantuml)
 
 	// M15.0 PublicShare management: session-authed, editor+ on source page's
 	// space. Soft-delete via revoked_at so the audit trail survives revocation.
@@ -263,6 +264,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// /api/share/{token}/pdf (and the descendant /p/<id>.pdf → ?p=<id>). Public
 	// via the /api/share/ prefix; the handler validates the share token + scope.
 	mux.HandleFunc("GET /api/share/{token}/pdf", srv.ExportSharePDF)
+	mux.HandleFunc("POST /api/share/{token}/render/plantuml", srv.RenderPlantumlShare)
 
 	// Public-space read API: a space with visibility='public' is readable with
 	// no login. MUST be on auth.IsPublicPath (/api/public/) so the session
@@ -306,6 +308,7 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /spaces/{id}", srv.HandleSpaceOG)
 	mux.HandleFunc("GET /spaces/{id}/og.png", srv.HandleSpaceOGImage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}", srv.GetPublicSpacePage)
+	mux.HandleFunc("POST /api/public/spaces/{id}/render/plantuml", srv.RenderPlantumlPublicSpace)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/md", srv.ExportPublicSpacePageMarkdown)
 	// Public decks: the live Present SPA + the first-slide cover, for public spaces.
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/deck/spa/{path...}", srv.ServePublicDeckSPA)

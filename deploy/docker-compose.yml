@@ -30,6 +30,9 @@ services:
       # Deck render sidecar — Slidev markdown → slide images / PDF. The backend
       # proxies it; deck pages render here. See deck/.
       TELA_DECK_URL:             ${TELA_DECK_URL:-http://deck:3344}
+      # PlantUML render via Kroki. Unset → feature dark. Enable with
+      # `docker compose --profile diagrams up -d` and set the URL below.
+      TELA_KROKI_URL:            ${TELA_KROKI_URL:-}
       # Bootstrap admin (first boot only; TELA_ADMIN_EMAIL also backfills later).
       TELA_ADMIN_USERNAME:  ${TELA_ADMIN_USERNAME:-}
       TELA_ADMIN_PASSWORD:  ${TELA_ADMIN_PASSWORD:-}
@@ -292,6 +295,18 @@ services:
     profiles: ["embed"]
     volumes:
       - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  # Optional Kroki diagram renderer (PlantUML and more). Off by default; start
+  # with `docker compose --profile diagrams up -d`, then set
+  # TELA_KROKI_URL=http://kroki:8000 in .env.
+  kroki:
+    image: yuzutech/kroki:0.26.0
+    profiles: ["diagrams"]
+    expose:
+      - "8000"
+    environment:
+      KROKI_SAFE_MODE: secure
     restart: unless-stopped
 
 volumes:

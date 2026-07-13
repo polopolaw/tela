@@ -323,15 +323,22 @@ export function ReaderShell({
         new Promise((resolve) => {
           const start = Date.now()
           const check = () => {
-            const pending = Array.from(
+            const pendingCharts = Array.from(
               document.querySelectorAll('.tela-chart-canvas'),
             ).filter(
               (c) =>
                 !c.querySelector('svg') && !c.closest('.tela-chart-error'),
             )
-            // Resolve when every chart has painted its SVG (or errored), or
-            // after an 8s cap so a stuck/failed chart never blocks the export.
-            if (pending.length === 0 || Date.now() - start > 8000) resolve()
+            const pendingPlantuml = Array.from(
+              document.querySelectorAll('.tela-plantuml'),
+            ).filter(
+              (el) =>
+                !el.querySelector('svg') &&
+                !el.classList.contains('tela-plantuml-error') &&
+                el.textContent?.trim() === 'Rendering diagram…',
+            )
+            const pending = pendingCharts.length + pendingPlantuml.length
+            if (pending === 0 || Date.now() - start > 8000) resolve()
             else window.setTimeout(check, 150)
           }
           check()

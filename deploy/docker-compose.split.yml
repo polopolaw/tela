@@ -40,6 +40,7 @@ services:
       TELA_PDF_RENDER_BASE_URL:  ${TELA_PDF_RENDER_BASE_URL:-http://proxy}
       # Deck render sidecar (deck/) — Slidev markdown → slide images / PDF.
       TELA_DECK_URL:             ${TELA_DECK_URL:-http://deck:3344}
+      TELA_KROKI_URL:            ${TELA_KROKI_URL:-}
       TELA_ADMIN_USERNAME:  ${TELA_ADMIN_USERNAME:-}
       TELA_ADMIN_PASSWORD:  ${TELA_ADMIN_PASSWORD:-}
       TELA_ADMIN_EMAIL:     ${TELA_ADMIN_EMAIL:-}

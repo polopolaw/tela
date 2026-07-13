@@ -19,6 +19,7 @@ import {
 } from '../../lib/markdown/transforms/callouts'
 import { buildMermaidElement } from '../../lib/diagrams/mermaid'
 import { buildChartWidget } from '../../lib/diagrams/chart'
+import { buildPlantumlElement } from '../../lib/diagrams/plantuml'
 import {
   buildCalendarGrid,
   CALENDAR_EVENT_RE,
@@ -155,12 +156,17 @@ function TexMath({ value, display }: { value: string; display: boolean }) {
 // Mounts an editor render-core element (mermaid/chart) into the React tree.
 // Reuses the exact same builder the editor uses (lib/diagrams/*) — zero drift,
 // and the heavy lib (mermaid/echarts) stays lazy.
-function DiagramWidget({ kind, code }: { kind: 'mermaid' | 'chart'; code: string }) {
+function DiagramWidget({ kind, code }: { kind: 'mermaid' | 'chart' | 'plantuml'; code: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const host = ref.current
     if (!host) return
-    const el = kind === 'mermaid' ? buildMermaidElement(code) : buildChartWidget(code)
+    const el =
+      kind === 'mermaid'
+        ? buildMermaidElement(code)
+        : kind === 'chart'
+          ? buildChartWidget(code)
+          : buildPlantumlElement(code)
     host.appendChild(el)
     return () => {
       try {
@@ -759,6 +765,7 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       // source) via the shared editor render cores.
       if (lang === 'mermaid') return <DiagramWidget key={key} kind="mermaid" code={value} />
       if (lang === 'chart') return <DiagramWidget key={key} kind="chart" code={value} />
+      if (lang === 'plantuml') return <DiagramWidget key={key} kind="plantuml" code={value} />
       return <CodeBlock key={key} lang={lang} value={value} />
     }
     case 'excalidraw':
