@@ -46,7 +46,7 @@ export function CredentialsDialog({
         name: name.trim(),
         kind,
         value: value.trim(),
-        meta: kind === 'jira' && user.trim() ? { username: user.trim() } : undefined,
+        meta: user.trim() ? { username: user.trim() } : undefined,
       })
       setAdding(false)
       setName('')
@@ -114,8 +114,17 @@ export function CredentialsDialog({
                   </Select>
                 </Field>
               </div>
-              {kind === 'jira' && <Field label="Jira username / email"><Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@org.com" /></Field>}
-              <Field label="Token" hint="Stored encrypted; never displayed again."><Input type="password" value={value} onChange={(e) => setValue(e.target.value)} placeholder="ghp_…" /></Field>
+              {kind === 'git' ? (
+                <Field
+                  label="Git username"
+                  hint="GitLab deploy token: gitlab+deploy-token-… · GitLab PAT: oauth2 · GitHub PAT: leave empty"
+                >
+                  <Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="gitlab+deploy-token-12345" />
+                </Field>
+              ) : (
+                <Field label="Jira username / email"><Input value={user} onChange={(e) => setUser(e.target.value)} placeholder="you@org.com" /></Field>
+              )}
+              <Field label="Token" hint="Stored encrypted; never displayed again."><Input type="password" value={value} onChange={(e) => setValue(e.target.value)} placeholder={kind === 'git' ? 'glpat-… or deploy token' : 'ghp_…'} /></Field>
               {err && <p className="text-[length:var(--text-sm)] text-[var(--accent-negative-fg)]">{err}</p>}
               <div className="flex justify-end gap-[var(--space-2)]">
                 <Button variant="ghost" size="sm" onClick={() => setAdding(false)}>Cancel</Button>
