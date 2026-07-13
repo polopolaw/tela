@@ -2243,6 +2243,99 @@
     outline: none;
   }
 
+  /* Macro include picker — searchable list + preview pane. */
+  .tela-macro-picker {
+    position: fixed;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    width: min(36rem, calc(100vw - 1rem));
+    max-height: 24rem;
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    box-shadow: 0 10px 30px -8px
+      color-mix(in srgb, var(--text-primary) 25%, transparent);
+    overflow: hidden;
+  }
+  .tela-macro-picker-tabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-2) 0;
+  }
+  .tela-macro-picker-tab {
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .tela-macro-picker-tab.is-active {
+    color: var(--text-primary);
+    background: var(--surface-2);
+  }
+  .tela-macro-picker-search {
+    margin: var(--space-2);
+  }
+  .tela-macro-picker-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    min-height: 10rem;
+    border-top: 1px solid var(--border-subtle);
+  }
+  .tela-macro-picker-list {
+    overflow-y: auto;
+    border-right: 1px solid var(--border-subtle);
+  }
+  .tela-macro-picker-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+  }
+  .tela-macro-picker-item.is-active,
+  .tela-macro-picker-item:hover {
+    background: var(--surface-2);
+  }
+  .tela-macro-picker-item-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+  }
+  .tela-macro-picker-item-meta {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    font-family: var(--font-mono, ui-monospace, monospace);
+  }
+  .tela-macro-picker-preview {
+    padding: var(--space-3);
+    overflow-y: auto;
+    font-size: var(--text-sm);
+  }
+  .tela-macro-picker-preview-title {
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+  }
+  .tela-macro-picker-preview-body {
+    color: var(--text-muted);
+    white-space: pre-wrap;
+    line-height: 1.45;
+  }
+  .tela-macro-picker-empty {
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+  }
+
   /* Wikilink hover preview — peek a linked page's title + excerpt on hover.
      Same floating-popover language as the wikilink picker menu above (surface,
      border, radius, soft shadow). Position is set inline (anchored to the

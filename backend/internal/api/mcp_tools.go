@@ -25,7 +25,7 @@ func retrievalGuideMarkdown() string {
 		"Two ways in, by intent:\n\n" +
 		"- **`search`** — keyword / full-text lookup. Use when you can name the page, or know an exact term, identifier, or error string in it. Ranked, snippet-highlighted, and always available (needs no embedder).\n" +
 		"- **`research`** — semantic, answer-oriented. Use to answer a question or gather everything relevant on a topic by meaning. One call returns assembled grounding (full relevant page bodies, not fragments), the cited `sources`, any flagged `disagreements`, and a `low_confidence` flag — you write the answer from it and cite by `[n]`. Needs a configured embedder.\n\n" +
-		"Then read deeper as needed: **`read_chunk`** for one section (`chunk_id` from a `research` source), **`get_page`** for a whole page, **`list_backlinks`** / **`related_pages`** to follow the graph.\n\n"
+		"Then read deeper as needed: **`read_chunk`** for one section (`chunk_id` from a `research` source), **`get_page`** for a whole page (raw markdown with `:::macro{…}` directives), **`get_page_resolved`** for the same page with all macro/page includes expanded inline, **`list_backlinks`** / **`related_pages`** to follow the graph.\n\n"
 }
 
 // registerMCPTools wires the tela tool surface onto the MCP server. Each tool
@@ -66,10 +66,17 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_page",
 		Title:       "Get page",
-		Description: "Full markdown body + metadata for a numeric page id. Includes an `epistemic` block — trust signals computed from the wiki's own state: freshness (age, stale, review_overdue), provenance (human / agent / sync), and corroboration vs. dispute against same-space pages. Weigh it: prefer fresh, corroborated, human-reviewed pages; treat a stale or disputed page as lower-confidence and check its listed disputes before relying on it.",
+		Description: "Full markdown body + metadata for a numeric page id. The body is stored markdown: `:::macro{id=…}` / `:::macro{page=…}` references are left as directives (live transclusion). Use `get_page_resolved` when you need the fully expanded text with all includes inlined. Includes an `epistemic` block — trust signals computed from the wiki's own state: freshness (age, stale, review_overdue), provenance (human / agent / sync), and corroboration vs. dispute against same-space pages. Weigh it: prefer fresh, corroborated, human-reviewed pages; treat a stale or disputed page as lower-confidence and check its listed disputes before relying on it.",
 		Annotations: readOnly,
 		Meta:        widgetToolMeta(uiPageReaderOpenAI, uiPageReaderMCPApp, "Renders the page as formatted markdown.", "Opening page…", "Page ready"),
 	}, s.mcpGetPage)
+
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_page_resolved",
+		Title:       "Get page (resolved includes)",
+		Description: "Like `get_page`, but expands every `:::macro{id=…}` block and `:::macro{page=…}` whole-page include inline (nested, with cycle/depth guards). `:::macro-def` wrappers are stripped to their inner content. Read-only. Use when you need the full readable text an author sees in the reader — not the stored source with live-include directives.",
+		Annotations: readOnly,
+	}, s.mcpGetPageResolved)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_backlinks",

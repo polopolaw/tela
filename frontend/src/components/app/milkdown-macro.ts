@@ -1,4 +1,4 @@
-import { $nodeSchema } from '@milkdown/kit/utils'
+import { $ctx, $nodeSchema } from '@milkdown/kit/utils'
 import { editorViewCtx } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/ctx'
 import { Plugin } from '@milkdown/kit/prose/state'
@@ -180,21 +180,50 @@ export function insertMacroDef(ctx: Ctx) {
 }
 
 export function insertMacroRef(ctx: Ctx) {
+  openMacroPicker(ctx)
+}
+
+// ── Macro include picker (slash / bubble) ─────────────────────────────────────
+
+export interface MacroPickerRequest {
+  anchor: { left: number; top: number; bottom: number }
+  pos: number
+}
+export type MacroPickerOpenHandler = (req: MacroPickerRequest) => void
+
+export const macroPickerOpenCtx = $ctx<MacroPickerOpenHandler | null, 'macroPickerOpen'>(
+  null,
+  'macroPickerOpen',
+)
+
+export function openMacroPicker(ctx: Ctx) {
+  const handler = ctx.get(macroPickerOpenCtx.key)
+  if (!handler) return
   const view = ctx.get(editorViewCtx)
-  const ref = window.prompt(
-    'Macro id (m_…) or numeric page id for whole-page include:',
-    '',
-  )
-  if (ref == null) return
-  const trimmed = ref.trim()
-  if (!trimmed) return
+  const { from } = view.state.selection
+  const coords = view.coordsAtPos(from)
+  handler({
+    pos: from,
+    anchor: { left: coords.left, top: coords.top, bottom: coords.bottom },
+  })
+}
+
+export function insertMacroRefAt(
+  ctx: Ctx,
+  pos: number,
+  sel: { macroId?: string; pageId?: number },
+) {
+  const view = ctx.get(editorViewCtx)
   const macroRefType = view.state.schema.nodes.macro_ref
   if (!macroRefType) return
-  const isPage = /^\d+$/.test(trimmed)
-  const node = isPage
-    ? macroRefType.create({ pageId: trimmed })
-    : macroRefType.create({ macroId: trimmed })
-  insertBlock(view, node, { caret: 'none' })
+  const at = Math.min(pos, view.state.doc.content.size)
+  const node =
+    sel.pageId != null && sel.pageId > 0
+      ? macroRefType.create({ pageId: String(sel.pageId) })
+      : macroRefType.create({ macroId: sel.macroId ?? '' })
+  const tr = view.state.tr.replaceWith(at, at, node)
+  view.dispatch(tr.scrollIntoView())
+  view.focus()
 }
 
 // Wrap the current selection in a new macro-def (bubble toolbar / slash menu).

@@ -114,7 +114,7 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 		got[tl.Name] = true
 	}
 	for _, want := range []string{
-		"list_spaces", "get_space", "list_pages", "get_page", "list_backlinks",
+		"list_spaces", "get_space", "list_pages", "get_page", "get_page_resolved", "list_backlinks",
 		"search", "research", "read_chunk", "fetch",
 		"create_page", "update_page", "delete_page", "move_page", "add_comment",
 		"create_space", "update_space", "delete_space", "submit_feedback",
@@ -288,6 +288,69 @@ func TestMCP_ReadTools(t *testing.T) {
 	mcpCallJSON(t, ctx, sess, "list_backlinks", map[string]any{"page_id": alphaID}, &bl)
 	if len(bl.Backlinks) != 1 || bl.Backlinks[0].PageID != betaID {
 		t.Fatalf("list_backlinks: %+v", bl.Backlinks)
+	}
+}
+
+// TestMCP_GetPageResolved expands macro/page includes in the MCP read surface.
+func TestMCP_GetPageResolved(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	space := seedSpace(t, d, "Docs", "docs-resolved", alice)
+
+	sourceBody := `:::macro-def{id="m_mcp"}
+Hello from macro.
+:::
+`
+	var sourceID int64
+	if err := d.QueryRowContext(context.Background(),
+		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'Source', $2, 0) RETURNING id`,
+		space, sourceBody).Scan(&sourceID); err != nil {
+		t.Fatalf("insert source: %v", err)
+	}
+	tx, err := d.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+	if err := syncPageMacros(context.Background(), tx, sourceID, space, sourceBody); err != nil {
+		tx.Rollback()
+		t.Fatalf("sync macros: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("commit: %v", err)
+	}
+
+	consumerBody := `Before
+
+:::macro{id="m_mcp"}
+:::
+
+After`
+	var consumerID int64
+	if err := d.QueryRowContext(context.Background(),
+		`INSERT INTO pages (space_id, parent_id, title, body, position) VALUES ($1, NULL, 'Consumer', $2, 0) RETURNING id`,
+		space, consumerBody).Scan(&consumerID); err != nil {
+		t.Fatalf("insert consumer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	sess := mcpSession(t, ctx, ts, seedReadKey(t, d, alice, auth.ScopeRead))
+
+	var raw getPageOut
+	mcpCallJSON(t, ctx, sess, "get_page", map[string]any{"id": consumerID}, &raw)
+	if !strings.Contains(raw.Page.Body, `:::macro{id="m_mcp"}`) {
+		t.Fatalf("get_page should keep directive: %q", raw.Page.Body)
+	}
+
+	var resolved getPageOut
+	mcpCallJSON(t, ctx, sess, "get_page_resolved", map[string]any{"id": consumerID}, &resolved)
+	if !strings.Contains(resolved.Page.Body, "Before") ||
+		!strings.Contains(resolved.Page.Body, "Hello from macro.") ||
+		!strings.Contains(resolved.Page.Body, "After") {
+		t.Fatalf("get_page_resolved body = %q", resolved.Page.Body)
+	}
+	if strings.Contains(resolved.Page.Body, ":::macro{") {
+		t.Fatalf("get_page_resolved should expand includes: %q", resolved.Page.Body)
 	}
 }
 

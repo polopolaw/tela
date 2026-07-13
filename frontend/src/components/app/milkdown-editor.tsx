@@ -103,7 +103,14 @@ import {
 import { timelineSchema } from './milkdown-timeline'
 import { calendarNodeView, calendarSchema } from './milkdown-calendar'
 import { pollSchema } from './milkdown-poll'
-import { macroDefSchema, macroRefSchema, ensureMacroDefIdsPlugin } from './milkdown-macro'
+import {
+  macroDefSchema,
+  macroRefSchema,
+  ensureMacroDefIdsPlugin,
+  macroPickerOpenCtx,
+  insertMacroRefAt,
+  type MacroPickerRequest,
+} from './milkdown-macro'
 import { stampMacroDefIdsInMarkdown } from '../../lib/markdown/stamp-macro-def-ids'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
@@ -118,6 +125,7 @@ import {
   EmojiAutocompleteView,
 } from './milkdown-emoji-autocomplete'
 import { EmojiPicker } from './emoji-picker'
+import { MacroPicker } from './macro-picker'
 import {
   calloutInputRule,
   calloutSchema,
@@ -284,6 +292,8 @@ export interface MilkdownEditorProps {
   // editor by page id, so a page switch unmounts/remounts. Also used by the
   // M13.3b Edit Sheet for PUT /api/pages/{pageId}/diagrams.
   pageId?: number
+  // Space id for the macro-include picker (lists macros defined in this space).
+  spaceId?: number
 }
 
 // Reconnecting banner copy.
@@ -310,6 +320,7 @@ function MilkdownEditorInner({
   showResolvedAnchors = false,
   wikilinkMode = 'edit',
   pageId = 0,
+  spaceId = 0,
 }: MilkdownEditorProps) {
   const pluginViewFactory = usePluginViewFactory()
 
@@ -365,6 +376,9 @@ function MilkdownEditorInner({
   // `emojiPickerOpenCtx` handler (set below to this setter in editable modes),
   // which captures the caret coords + position; the picker inserts back there.
   const [emojiPicker, setEmojiPicker] = useState<EmojiPickerRequest | null>(
+    null,
+  )
+  const [macroPicker, setMacroPicker] = useState<MacroPickerRequest | null>(
     null,
   )
   // Image-upload paste/drop. Editable, non-share, page-known (the upload route
@@ -561,6 +575,12 @@ function MilkdownEditorInner({
           wikilinkMode === 'share' || readOnly
             ? null
             : (req) => setEmojiPicker(req),
+        )
+        ctx.set(
+          macroPickerOpenCtx.key,
+          wikilinkMode === 'share' || readOnly
+            ? null
+            : (req: MacroPickerRequest) => setMacroPicker(req),
         )
         // M13.5 (#116) — modifier-click follow. Off in share and viewer
         // modes (those keep native click behaviour: share has its own
@@ -899,6 +919,7 @@ function MilkdownEditorInner({
       .use(pageIdCtx)
       .use(excalidrawOpenCtx)
       .use(emojiPickerOpenCtx)
+      .use(macroPickerOpenCtx)
       .use(excalidrawRemarkPlugin)
       .use(excalidrawSchema)
       .use(excalidrawClickPlugin)
@@ -1273,6 +1294,19 @@ function MilkdownEditorInner({
             setEmojiPicker(null)
           }}
           onClose={() => setEmojiPicker(null)}
+        />
+      ) : null}
+      {macroPicker ? (
+        <MacroPicker
+          spaceId={spaceId}
+          anchor={macroPicker.anchor}
+          onSelect={(sel) => {
+            get()?.action((ctx) =>
+              insertMacroRefAt(ctx, macroPicker.pos, sel),
+            )
+            setMacroPicker(null)
+          }}
+          onClose={() => setMacroPicker(null)}
         />
       ) : null}
     </div>

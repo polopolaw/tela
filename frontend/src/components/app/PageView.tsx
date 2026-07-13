@@ -1601,6 +1601,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                 collabPageId={null}
                 readOnly={false}
                 pageId={page.id}
+                spaceId={spaceId}
               />
             </Suspense>
           )
@@ -1626,6 +1627,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
               onAnchorsResolved={isViewer ? undefined : handleAnchorsResolved}
               showResolvedAnchors={showResolvedComments}
               pageId={page.id}
+              spaceId={spaceId}
             />
           </Suspense>
         ) : (
