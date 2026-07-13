@@ -103,7 +103,7 @@ import {
 import { timelineSchema } from './milkdown-timeline'
 import { calendarNodeView, calendarSchema } from './milkdown-calendar'
 import { pollSchema } from './milkdown-poll'
-import { macroDefSchema, macroRefSchema } from './milkdown-macro'
+import { macroDefSchema, macroRefSchema, ensureMacroDefIdsPlugin } from './milkdown-macro'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -654,6 +654,9 @@ function MilkdownEditorInner({
           const plainPaste = createPlainPastePlugin()
           ctx.update(prosePluginsCtx, (existing) => [plainPaste, ...existing])
         }
+
+        // macro-def must always serialize with {id=…} or the API rejects the save.
+        ctx.update(prosePluginsCtx, (existing) => [...existing, ensureMacroDefIdsPlugin])
 
         // Image paste/drop → upload → ![](url). Prepended so it intercepts
         // image files before the default clipboard handler turns them into

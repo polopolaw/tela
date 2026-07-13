@@ -1,6 +1,8 @@
 import { $nodeSchema } from '@milkdown/kit/utils'
 import { editorViewCtx } from '@milkdown/kit/core'
 import type { Ctx } from '@milkdown/ctx'
+import { Plugin } from '@milkdown/kit/prose/state'
+import type { Transaction } from '@milkdown/kit/prose/state'
 import { insertBlock } from '../../lib/milkdown/insert-block'
 import { newMacroId } from '../../lib/queries/macros'
 
@@ -10,6 +12,25 @@ interface MdastNode {
   attributes?: Record<string, string | null | undefined>
   children?: MdastNode[]
 }
+
+function ensureMacroId(raw: string | undefined | null): string {
+  const id = (raw ?? '').trim()
+  return id || newMacroId()
+}
+
+// Stamp missing ids before serialize/save — macro-def without {id=} 400s on PATCH.
+export const ensureMacroDefIdsPlugin = new Plugin({
+  appendTransaction(_transactions, _oldState, newState) {
+    let tr: Transaction | null = null
+    newState.doc.descendants((node, pos) => {
+      if (node.type.name !== 'macro_def') return
+      if ((node.attrs.macroId as string)?.trim()) return
+      tr ??= newState.tr
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, macroId: newMacroId() })
+    })
+    return tr
+  },
+})
 
 // macro-def: reusable source block on a page (`:::macro-def{id=…}` … `:::`).
 export const macroDefSchema = $nodeSchema('macro_def', () => ({
@@ -41,7 +62,7 @@ export const macroDefSchema = $nodeSchema('macro_def', () => ({
       node.type === 'containerDirective' && (node as MdastNode).name === 'macro-def',
     runner: (state, node, type) => {
       const attrs = (node as MdastNode).attributes ?? {}
-      const macroId = attrs.id ?? ''
+      const macroId = ensureMacroId(attrs.id)
       const children = (node as MdastNode).children ?? []
       state.openNode(type, { macroId })
       if (children.length > 0) {
@@ -59,12 +80,10 @@ export const macroDefSchema = $nodeSchema('macro_def', () => ({
   toMarkdown: {
     match: (node) => node.type.name === 'macro_def',
     runner: (state, node) => {
-      const attributes: Record<string, string> = {}
-      const macroId = (node.attrs.macroId as string) || ''
-      if (macroId) attributes.id = macroId
+      const macroId = ensureMacroId(node.attrs.macroId as string)
       state.openNode('containerDirective', undefined, {
         name: 'macro-def',
-        attributes,
+        attributes: { id: macroId },
       })
       state.next(node.content)
       state.closeNode()
