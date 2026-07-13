@@ -16,21 +16,24 @@ import (
 // proxy is a drop-in swap).
 func TestOpenAIEmbedder_Embed(t *testing.T) {
 	var gotPath, gotInput string
+	var gotDimensions int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
 		body, _ := io.ReadAll(r.Body)
 		var req struct {
-			Input string `json:"input"`
+			Input      string `json:"input"`
+			Dimensions int    `json:"dimensions"`
 		}
 		_ = json.Unmarshal(body, &req)
 		gotInput = req.Input
+		gotDimensions = req.Dimensions
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"data": []map[string]any{{"embedding": []float32{0.1, 0.2, 0.3}}},
 		})
 	}))
 	defer srv.Close()
 
-	emb := NewOpenAIEmbedder(srv.URL+"/v1", "text-embedding-3-small", "")
+	emb := NewOpenAIEmbedder(srv.URL+"/v1", "text-embedding-3-small", "", 1024)
 	vec, err := emb.Embed(context.Background(), "a passage")
 	if err != nil {
 		t.Fatalf("Embed: %v", err)
@@ -43,6 +46,9 @@ func TestOpenAIEmbedder_Embed(t *testing.T) {
 	}
 	if gotInput != "a passage" {
 		t.Fatalf("passage should embed bare, got %q", gotInput)
+	}
+	if gotDimensions != 1024 {
+		t.Fatalf("expected dimensions=1024, got %d", gotDimensions)
 	}
 
 	if _, err := emb.EmbedQuery(context.Background(), "how do we deploy"); err != nil {
@@ -76,7 +82,7 @@ func TestOpenAIEmbedder_OverflowShrinks(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	emb := NewOpenAIEmbedder(srv.URL+"/v1", "m", "")
+	emb := NewOpenAIEmbedder(srv.URL+"/v1", "m", "", 0)
 	vec, err := emb.Embed(context.Background(), strings.Repeat("x", 1600))
 	if err != nil {
 		t.Fatalf("Embed should succeed after shrinking: %v", err)

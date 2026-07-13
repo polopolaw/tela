@@ -134,7 +134,7 @@ func NewService(db *sql.DB, cfg Config) *Service {
 		// A /v1 base speaks the OpenAI /embeddings shape (e.g. a LiteLLM proxy
 		// fronting a primary+relief pool); anything else is native Ollama.
 		if isOpenAIBase(cfg.EmbedURL) {
-			s.emb = NewOpenAIEmbedder(cfg.EmbedURL, cfg.EmbedModel, cfg.EmbedToken)
+			s.emb = NewOpenAIEmbedder(cfg.EmbedURL, cfg.EmbedModel, cfg.EmbedToken, cfg.Dim)
 		} else {
 			s.emb = NewOllamaEmbedder(cfg.EmbedURL, cfg.EmbedModel, cfg.EmbedToken)
 		}

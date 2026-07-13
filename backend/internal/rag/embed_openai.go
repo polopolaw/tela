@@ -25,17 +25,21 @@ type OpenAIEmbedder struct {
 	base     string
 	model    string
 	token    string // optional bearer (LiteLLM virtual key, or a tela PAT for the managed proxy)
+	dim      int    // optional output dimension (text-embedding-3-*); 0 = provider default
 	instruct string // query-side asymmetric instruction; blank disables the prefix
 	client   *http.Client
 }
 
 // NewOpenAIEmbedder builds an embedder for an OpenAI-compatible /embeddings
-// endpoint. token is optional (a LiteLLM key / provider key / tela PAT).
-func NewOpenAIEmbedder(base, model, token string) *OpenAIEmbedder {
+// endpoint. token is optional (a LiteLLM key / provider key / tela PAT). dim is
+// the optional output dimension (e.g. 1024 for text-embedding-3-small against
+// page_chunks.embedding vector(1024)); 0 leaves the provider default.
+func NewOpenAIEmbedder(base, model, token string, dim int) *OpenAIEmbedder {
 	return &OpenAIEmbedder{
 		base:     strings.TrimRight(base, "/"),
 		model:    model,
 		token:    strings.TrimSpace(token),
+		dim:      dim,
 		instruct: strings.TrimSpace(getenv("TELA_RAG_QUERY_INSTRUCT", defaultQueryInstruct)),
 		client:   &http.Client{Timeout: 60 * time.Second},
 	}
@@ -94,7 +98,11 @@ func (e *OpenAIEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 // rejected the input for exceeding the model's context window (the retryable
 // case). The OpenAI embeddings response is {"data":[{"embedding":[...]}]}.
 func (e *OpenAIEmbedder) embedOnce(ctx context.Context, input string) (vec []float32, overflow bool, err error) {
-	body, _ := json.Marshal(map[string]any{"model": e.model, "input": input})
+	reqBody := map[string]any{"model": e.model, "input": input}
+	if e.dim > 0 {
+		reqBody["dimensions"] = e.dim
+	}
+	body, _ := json.Marshal(reqBody)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, e.base+"/embeddings", bytes.NewReader(body))
 	if err != nil {
 		return nil, false, err
