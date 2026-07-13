@@ -6,6 +6,8 @@
 package macromd
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strconv"
@@ -111,6 +113,67 @@ func splitLines(body string) []string {
 		body = strings.ReplaceAll(body, "\r\n", "\n")
 	}
 	return strings.Split(body, nl)
+}
+
+func newMacroID() string {
+	b := make([]byte, 5)
+	_, _ = rand.Read(b)
+	return "m_" + hex.EncodeToString(b)
+}
+
+// StampMacroDefIDs rewrites macro-def openers that lack an id attribute so saves
+// from any client (editor wrap, agents, pasted markdown) never 400.
+func StampMacroDefIDs(body string) string {
+	lines := splitLines(body)
+	nl := "\n"
+	if strings.Contains(body, "\r\n") {
+		nl = "\r\n"
+	}
+	changed := false
+	for i := 0; i < len(lines); i++ {
+		t := strings.TrimSpace(lines[i])
+		if !strings.HasPrefix(t, ":::macro-def") {
+			continue
+		}
+		if attrValue(t, "id") != "" {
+			continue
+		}
+		lines[i] = stampMacroDefOpenLine(lines[i], newMacroID())
+		changed = true
+		for j := i + 1; j < len(lines); j++ {
+			if strings.TrimSpace(lines[j]) == ":::" {
+				i = j
+				break
+			}
+		}
+	}
+	if !changed {
+		return body
+	}
+	return strings.Join(lines, nl)
+}
+
+func stampMacroDefOpenLine(line, id string) string {
+	trimmed := strings.TrimSpace(line)
+	if !strings.HasPrefix(trimmed, ":::macro-def") {
+		return line
+	}
+	lead := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+	rest := strings.TrimPrefix(trimmed, ":::macro-def")
+	if strings.HasPrefix(rest, "{") {
+		r := strings.LastIndex(rest, "}")
+		if r >= 0 {
+			inner := strings.TrimSpace(rest[1:r])
+			var newInner string
+			if inner == "" {
+				newInner = fmt.Sprintf(`id=%q`, id)
+			} else {
+				newInner = fmt.Sprintf(`id=%q %s`, id, inner)
+			}
+			return lead + `:::macro-def{` + newInner + `}` + rest[r+1:]
+		}
+	}
+	return lead + fmt.Sprintf(`:::macro-def{id=%q}`, id)
 }
 
 // attrValue extracts a named attribute from a directive opening line's `{…}` block.

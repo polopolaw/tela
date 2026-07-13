@@ -107,6 +107,37 @@ b
 	}
 }
 
+// TestMacros_HTTP_BareMacroDef_AutoStamps ensures saves without {id=} are repaired.
+func TestMacros_HTTP_BareMacroDef_AutoStamps(t *testing.T) {
+	ts, d := newWiredServer(t)
+	owner := seedUser(t, d, "stampowner", "stampownerpw", false)
+	spaceID := seedSpace(t, d, "Macro stamp", "macro-stamp", owner)
+	c := loginClient(t, ts, "stampowner", "stampownerpw")
+
+	body := ":::macro-def\nwrapped content\n:::\n"
+	createBody := fmt.Sprintf(`{"space_id":%d,"title":"Bare macro","body":%q}`, spaceID, body)
+	resp, err := c.Post(ts.URL+"/api/pages", "application/json", strings.NewReader(createBody))
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		t.Fatalf("create status=%d body=%s", resp.StatusCode, b)
+	}
+	var created struct {
+		Page struct {
+			Body string `json:"body"`
+		} `json:"page"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !strings.Contains(created.Page.Body, `:::macro-def{id=`) {
+		t.Fatalf("body not stamped: %q", created.Page.Body)
+	}
+}
+
 // TestSyncMacroRefs_TracksIncludes records block and page-level includes.
 func TestSyncMacroRefs_TracksIncludes(t *testing.T) {
 	ctx := context.Background()

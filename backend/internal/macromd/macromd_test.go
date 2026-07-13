@@ -48,6 +48,31 @@ b
 	}
 }
 
+func TestStampMacroDefIDs(t *testing.T) {
+	body := `intro
+
+:::macro-def
+### Hello
+- one
+:::
+
+tail`
+	stamped := StampMacroDefIDs(body)
+	if stamped == body {
+		t.Fatal("expected body to change")
+	}
+	defs, err := ParseMacroDefs(stamped)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(defs) != 1 || defs[0].ID == "" {
+		t.Fatalf("stamped def: %+v", defs)
+	}
+	if !strings.Contains(defs[0].Body, "### Hello") {
+		t.Fatalf("inner body: %q", defs[0].Body)
+	}
+}
+
 func TestParseMacroRefs(t *testing.T) {
 	body := `intro
 

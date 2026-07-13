@@ -163,6 +163,11 @@ export const macroRefSchema = $nodeSchema('macro_ref', () => ({
 
 export function insertMacroDef(ctx: Ctx) {
   const view = ctx.get(editorViewCtx)
+  const { state } = view
+  if (!state.selection.empty) {
+    wrapSelectionInMacroDef(ctx)
+    return
+  }
   const { schema } = view.state
   const macroDefType = schema.nodes.macro_def
   const paraType = schema.nodes.paragraph
@@ -192,18 +197,33 @@ export function insertMacroRef(ctx: Ctx) {
   insertBlock(view, node, { caret: 'none' })
 }
 
-// Wrap the current selection in a new macro-def (bubble toolbar).
+// Wrap the current selection in a new macro-def (bubble toolbar / slash menu).
 export function wrapSelectionInMacroDef(ctx: Ctx) {
   const view = ctx.get(editorViewCtx)
   const { state } = view
   const { from, to } = state.selection
   if (from === to) return
   const macroDefType = state.schema.nodes.macro_def
+  const paraType = state.schema.nodes.paragraph
   if (!macroDefType) return
   const macroId = newMacroId()
-  const slice = state.doc.slice(from, to)
-  const node = macroDefType.create({ macroId }, slice.content)
-  const tr = state.tr.replaceRangeWith(from, to, node)
-  view.dispatch(tr.scrollIntoView())
+  const $from = state.doc.resolve(from)
+  const $to = state.doc.resolve(to)
+  const range = $from.blockRange($to)
+  if (range) {
+    const tr = state.tr.wrap(range, [{ type: macroDefType, attrs: { macroId } }])
+    view.dispatch(tr.scrollIntoView())
+    view.focus()
+    return
+  }
+  // Inline-only selection: one paragraph scaffold inside the macro.
+  if (!paraType) return
+  const text = state.doc.textBetween(from, to)
+  const para = paraType.create(
+    null,
+    text ? state.schema.text(text) : undefined,
+  )
+  const node = macroDefType.create({ macroId }, para)
+  view.dispatch(state.tr.replaceRangeWith(from, to, node).scrollIntoView())
   view.focus()
 }

@@ -104,6 +104,7 @@ import { timelineSchema } from './milkdown-timeline'
 import { calendarNodeView, calendarSchema } from './milkdown-calendar'
 import { pollSchema } from './milkdown-poll'
 import { macroDefSchema, macroRefSchema, ensureMacroDefIdsPlugin } from './milkdown-macro'
+import { stampMacroDefIdsInMarkdown } from '../../lib/markdown/stamp-macro-def-ids'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -486,7 +487,7 @@ function MilkdownEditorInner({
             // (session == null) the legacy single-author path is
             // unconditional.
             if (session != null && !isLeaderRef.current) return
-            callbacks.current.onChange(md)
+            callbacks.current.onChange(stampMacroDefIdsInMarkdown(md))
           })
           .blur(() => {
             // Same leader gate as markdownUpdated. Blur in PageView cancels
@@ -1094,7 +1095,9 @@ function MilkdownEditorInner({
       try {
         editor.action((ctx) => {
           const view = ctx.get(editorViewCtx)
-          callbacks.current.onChange(ctx.get(serializerCtx)(view.state.doc))
+          callbacks.current.onChange(
+            stampMacroDefIdsInMarkdown(ctx.get(serializerCtx)(view.state.doc)),
+          )
         })
       } catch {
         // Editor mid-teardown — drop; the next remote update or a local edit
@@ -1233,7 +1236,9 @@ function MilkdownEditorInner({
               const editor = get()
               editor?.action((ctx) => {
                 const view = ctx.get(editorViewCtx)
-                callbacks.current.onChange(ctx.get(serializerCtx)(view.state.doc))
+                callbacks.current.onChange(
+            stampMacroDefIdsInMarkdown(ctx.get(serializerCtx)(view.state.doc)),
+          )
               })
             }}
           />
@@ -1252,7 +1257,9 @@ function MilkdownEditorInner({
               const editor = get()
               editor?.action((ctx) => {
                 const view = ctx.get(editorViewCtx)
-                callbacks.current.onChange(ctx.get(serializerCtx)(view.state.doc))
+                callbacks.current.onChange(
+            stampMacroDefIdsInMarkdown(ctx.get(serializerCtx)(view.state.doc)),
+          )
               })
             }}
           />

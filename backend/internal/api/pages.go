@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
+	"github.com/zcag/tela/backend/internal/macromd"
 	"github.com/zcag/tela/backend/internal/models"
 	"github.com/zcag/tela/backend/internal/pagemd"
 )
@@ -412,6 +413,9 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if props == nil {
 		props = map[string]any{}
 	}
+	if !isDeck && !isSheet {
+		body = macromd.StampMacroDefIDs(body)
+	}
 	if len(title) > maxPageTitleLen {
 		return models.Page{}, &apiErr{http.StatusBadRequest, "invalid_title", "title exceeds 500 characters"}
 	}
@@ -735,7 +739,7 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 		if verbatim || isDeckBag(bp) || isSheetBag(bp) {
 			bodyStripped = *req.Body // verbatim — preserve deck headmatter / defter tables
 		} else {
-			bodyStripped = stripped
+			bodyStripped = macromd.StampMacroDefIDs(stripped)
 			bodyProps = bp
 		}
 		args = append(args, bodyStripped)
