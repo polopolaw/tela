@@ -276,6 +276,39 @@
       "note": "Options are top-level list items. Give the block a unique `id`. Votes are recorded in the body as nested `- @username` items under an option — voting happens in the read view (editors only), so you normally don't hand-write voters. `closed` on the directive freezes results."
     },
     {
+      "id": "macro-def",
+      "label": "Macro (source)",
+      "hint": "Reusable block — edit once, include elsewhere",
+      "category": "Layout",
+      "slash": true,
+      "agent": true,
+      "keywords": [
+        "macro",
+        "transclusion",
+        "synced",
+        "reusable",
+        "include"
+      ],
+      "syntax": ":::macro-def{id=\"m_abc123\"}\nContent here\n:::",
+      "when": "Wrap reusable content; consumers insert with :::macro{id=\"m_abc123\"}."
+    },
+    {
+      "id": "macro",
+      "label": "Macro insert",
+      "hint": "Live-include a macro block or whole page",
+      "category": "Layout",
+      "slash": true,
+      "agent": true,
+      "keywords": [
+        "macro",
+        "include",
+        "transclude",
+        "embed page"
+      ],
+      "syntax": ":::macro{id=\"m_abc123\"}\n:::",
+      "when": "Live-include a macro block (id=) or whole page (page=) — content fetched on read."
+    },
+    {
       "id": "chart",
       "label": "Chart",
       "hint": "Bar / line / pie (interactive)",

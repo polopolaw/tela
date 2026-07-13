@@ -41,6 +41,7 @@ import {
   type PollData,
   type PollOption,
 } from '../app/PollWidget'
+import { MacroDefView, MacroView, MacroRenderContext } from './MacroView'
 
 // Context for renderers that need page-scoped data (excalidraw PNG URL, wikilink
 // resolution; comments later). Provided by MarkdownView.
@@ -881,6 +882,12 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       if (name === 'stats') return <StatGridView key={key} node={node} />
       if (name === 'calendar') return <CalendarView key={key} node={node} />
       if (name === 'poll') return <PollBlockView key={key} node={node} />
+      if (name === 'macro-def') {
+        return (
+          <MacroDefView key={key} node={node} renderChild={(n, i) => renderNode(n, i)} />
+        )
+      }
+      if (name === 'macro') return <MacroView key={key} node={node} />
       // Unknown directive — render its children so no content is lost. A
       // Fragment avoids wrapping (possibly block) content in an invalid element.
       return node.children ? (
@@ -933,6 +940,11 @@ export function MarkdownView({
   onReady,
   canVote,
   className,
+  macroDepth = 0,
+  visitedMacroIds,
+  visitedPageIds,
+  shareToken,
+  publicSpaceId,
 }: {
   body: string
   /** Page id — needed to build the excalidraw PNG URL. */
@@ -953,11 +965,43 @@ export function MarkdownView({
   /** Show the poll vote affordance (app read view). Omit on public/share. */
   canVote?: boolean
   className?: string
+  /** Nesting depth for live macro includes (cycle guard). */
+  macroDepth?: number
+  visitedMacroIds?: Set<string>
+  visitedPageIds?: Set<number>
+  shareToken?: string
+  publicSpaceId?: number
 }) {
   const tree = useMemo(() => parsePageMarkdown(body), [body])
   const ctx = useMemo<ViewContextValue>(
     () => ({ pageId, resolveWikilink, pageHref, wikilinkUnresolved, canVote }),
     [pageId, resolveWikilink, pageHref, wikilinkUnresolved, canVote],
+  )
+  const macroCtx = useMemo(
+    () => ({
+      macroDepth,
+      visitedMacroIds,
+      visitedPageIds,
+      shareToken,
+      publicSpaceId,
+      pageId,
+      resolveWikilink,
+      pageHref,
+      wikilinkUnresolved,
+      canVote,
+    }),
+    [
+      macroDepth,
+      visitedMacroIds,
+      visitedPageIds,
+      shareToken,
+      publicSpaceId,
+      pageId,
+      resolveWikilink,
+      pageHref,
+      wikilinkUnresolved,
+      canVote,
+    ],
   )
   const contentRef = useRef<HTMLDivElement>(null)
   useCommentHighlights(contentRef, commentThreads, onCommentClick)
@@ -966,21 +1010,23 @@ export function MarkdownView({
   }, [body, onReady])
   return (
     <ViewContext.Provider value={ctx}>
-      <div className={cn('tela-milkdown', className)}>
-        {/* Temporary `.ProseMirror` CSS hook — see file header. `whiteSpace:
+      <MacroRenderContext.Provider value={macroCtx}>
+        <div className={cn('tela-milkdown', className)}>
+          {/* Temporary `.ProseMirror` CSS hook — see file header. `whiteSpace:
             normal` overrides the editor's `pre-wrap` so markdown soft-wraps
             collapse to spaces (correct for a static HTML view) instead of
             rendering as hard line breaks. Drops out with the `.tela-prose`
             extraction. */}
-        <div
-          ref={contentRef}
-          className="ProseMirror"
-          data-tela-view=""
-          style={{ whiteSpace: 'normal' }}
-        >
-          {renderChildren(tree as unknown as MdNode)}
+          <div
+            ref={contentRef}
+            className="ProseMirror"
+            data-tela-view=""
+            style={{ whiteSpace: 'normal' }}
+          >
+            {renderChildren(tree as unknown as MdNode)}
+          </div>
         </div>
-      </div>
+      </MacroRenderContext.Provider>
     </ViewContext.Provider>
   )
 }

@@ -17,8 +17,10 @@ import {
 } from '@milkdown/kit/preset/commonmark'
 import { toggleStrikethroughCommand } from '@milkdown/kit/preset/gfm'
 import { toggleHighlightCommand } from './milkdown-highlight'
+import { wrapSelectionInMacroDef } from './milkdown-macro'
 import {
   Bold,
+  Boxes,
   Code,
   Highlighter,
   Italic,
@@ -288,6 +290,13 @@ export function BubbleToolbarView() {
           </BubbleButton>
           <BubbleButton label="Link" active={active.link} onClick={openLinkMode}>
             <LinkIcon size="1em" strokeWidth={2.5} aria-hidden />
+          </BubbleButton>
+          <BubbleButton
+            label="Wrap in macro"
+            active={false}
+            onClick={() => runAction(wrapSelectionInMacroDef)}
+          >
+            <Boxes size="1em" strokeWidth={2.5} aria-hidden />
           </BubbleButton>
         </>
       )}

@@ -222,6 +222,7 @@ export function PublicReaderView({
       aliveWikilinkIds={inScopePageIds}
       wikilinkResolveIndex={wikilinkResolveIndex}
       onNavigateWikilink={onNavigateWikilink}
+      publicSpaceId={space.id}
       coverImage={coverImage}
       byline={byline}
       publishedAt={createdAt}

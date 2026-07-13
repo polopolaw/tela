@@ -103,6 +103,7 @@ import {
 import { timelineSchema } from './milkdown-timeline'
 import { calendarNodeView, calendarSchema } from './milkdown-calendar'
 import { pollSchema } from './milkdown-poll'
+import { macroDefSchema, macroRefSchema } from './milkdown-macro'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -811,6 +812,8 @@ function MilkdownEditorInner({
       // Poll — minimal round-trip schema so `:::poll` survives the strict parser
       // (isn't unwrapped/stripped on save); the rich vote UI is read-view only.
       .use(pollSchema)
+      .use(macroDefSchema)
+      .use(macroRefSchema)
       // M19 — GFM table upgrades (glyph cells, featured column, sticky first
       // column, reader-side sort/filter). Enhances the stock table; no new
       // node. See milkdown-table.ts.

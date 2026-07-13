@@ -9,6 +9,7 @@ import { api } from '../api'
 import { emitPageMutation, subscribeToPageMutation } from '../pageMutationEvent'
 import type {
   Backlink,
+  MacroInclude,
   CreatePageInput,
   MovePageInput,
   Page,
@@ -127,10 +128,14 @@ export function useBacklinks(pageId: number | null | undefined) {
   return useQuery({
     queryKey: pageId != null ? pageKeys.backlinks(pageId) : pageKeys.backlinks(-1),
     queryFn: async () => {
-      const { backlinks } = await api<{ backlinks: Backlink[] }>(
-        `/api/pages/${pageId}/backlinks`,
-      )
-      return backlinks
+      const data = await api<{
+        backlinks: Backlink[]
+        macro_includes?: MacroInclude[]
+      }>(`/api/pages/${pageId}/backlinks`)
+      return {
+        backlinks: data.backlinks,
+        macroIncludes: data.macro_includes ?? [],
+      }
     },
     enabled: pageId != null,
     // Inherits the global SWR staleTime; bus-invalidated on any page mutation.

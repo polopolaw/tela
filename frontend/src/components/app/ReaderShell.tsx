@@ -175,6 +175,10 @@ export interface ReaderShellProps {
   articleFooter?: ReactNode
   /** Attachments strip rendered just below the title (page files). */
   attachmentStrip?: ReactNode
+  /** Share token for live macro fetches on public share surfaces. */
+  shareToken?: string
+  /** Public space id for live macro fetches on public space surfaces. */
+  publicSpaceId?: number
 }
 
 // Set on the window once the reader has painted (fonts ready + a short settle so
@@ -212,6 +216,8 @@ export function ReaderShell({
   publishedAt,
   articleFooter,
   attachmentStrip,
+  shareToken,
+  publicSpaceId,
 }: ReaderShellProps) {
   // Preferences — text size + typeface, persisted; theme is global.
   const [size, setSize] = useState<ReaderSize>(() =>
@@ -337,7 +343,8 @@ export function ReaderShell({
                 !el.classList.contains('tela-plantuml-error') &&
                 el.textContent?.trim() === 'Rendering diagram…',
             )
-            const pending = pendingCharts.length + pendingPlantuml.length
+            const pendingMacros = document.querySelectorAll('[data-macro-pending]')
+            const pending = pendingCharts.length + pendingPlantuml.length + pendingMacros.length
             if (pending === 0 || Date.now() - start > 8000) resolve()
             else window.setTimeout(check, 150)
           }
@@ -630,6 +637,8 @@ export function ReaderShell({
                   pageHref={(id) => `tela://page/${id}`}
                   wikilinkUnresolved="plain"
                   onReady={handleContentReady}
+                  shareToken={shareToken}
+                  publicSpaceId={publicSpaceId}
                 />
               )}
               {articleFooter}

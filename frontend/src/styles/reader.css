@@ -839,4 +839,47 @@
       display: none !important;
     }
   }
+
+  /* Live macro includes (transclusion). */
+  .tela-reader .tela-macro {
+    margin: var(--space-4) 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .tela-reader .tela-macro-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+  }
+  .tela-reader .tela-macro-source {
+    color: inherit;
+    text-decoration: none;
+  }
+  .tela-reader .tela-macro-source:hover {
+    color: var(--accent);
+  }
+  .tela-reader .tela-macro-live-label {
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+  }
+  .tela-reader .tela-macro-body {
+    padding: var(--space-3) var(--space-4);
+  }
+  .tela-reader .tela-macro-placeholder {
+    padding: var(--space-3) var(--space-4);
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .tela-reader .tela-macro-error {
+    color: var(--danger, #c00);
+    font-style: normal;
+  }
 }

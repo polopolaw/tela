@@ -36,6 +36,16 @@ type Space struct {
 	MyRole string `json:"my_role,omitempty"`
 }
 
+// PageMacro is a block-level reusable content fragment indexed by macro_id.
+type PageMacro struct {
+	MacroID   string `json:"macro_id"`
+	PageID    int64  `json:"page_id"`
+	SpaceID   int64  `json:"space_id"`
+	Title     string `json:"title,omitempty"`
+	Body      string `json:"body"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type Page struct {
 	ID        int64          `json:"id"`
 	SpaceID   int64          `json:"space_id"`

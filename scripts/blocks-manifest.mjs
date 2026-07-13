@@ -65,6 +65,7 @@ const PLUGIN_BLOCKS = {
   'milkdown-mermaid': ['mermaid'],
   'milkdown-plantuml': ['plantuml'],
   'milkdown-poll': ['poll'],
+  'milkdown-macro': ['macro-def', 'macro'],
   'milkdown-pullquote': ['pull-quote'],
   'milkdown-stat-grid': ['stat-grid'],
   'milkdown-table': ['table'],
@@ -91,7 +92,7 @@ const VIEW_RENDERED = new Set([
   'wikilink', 'tabs',
   'pull-quote', 'embed', 'file', 'timeline',
   'kanban', 'stat-grid', 'calendar', 'collapsible',
-  'poll',
+  'poll', 'macro-def', 'macro',
 ])
 // Rendered as children (content preserved, chrome not yet ported). Tracked so
 // the gap is explicit and reviewable, never silent. Currently empty — the full

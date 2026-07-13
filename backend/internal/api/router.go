@@ -173,6 +173,9 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("DELETE /api/pages/{id}", srv.DeletePage)
 	mux.HandleFunc("POST /api/pages/{id}/move", srv.MovePage)
 	mux.HandleFunc("GET /api/pages/{id}/backlinks", srv.Backlinks)
+	mux.HandleFunc("GET /api/macros", srv.ListMacros)
+	mux.HandleFunc("GET /api/macros/{id}", srv.GetMacro)
+	mux.HandleFunc("GET /api/pages/{id}/include", srv.GetPageInclude)
 	mux.HandleFunc("GET /api/pages/{id}/provenance", srv.PageProvenance)
 	mux.HandleFunc("GET /api/pages/{id}/agreement", srv.PageAgreement)
 	mux.HandleFunc("GET /api/graph", srv.GraphData)
@@ -259,6 +262,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/share/{token}", srv.GetPublicShare)
 	mux.HandleFunc("POST /api/share/{token}/auth", srv.PublicShareAuth)
 	mux.HandleFunc("GET /api/share/{token}/page/{page_id}", srv.GetPublicSharePage)
+	mux.HandleFunc("GET /api/share/{token}/page/{page_id}/include", srv.GetPublicSharePageInclude)
+	mux.HandleFunc("GET /api/share/{token}/macros/{id}", srv.GetPublicShareMacro)
 	mux.HandleFunc("GET /api/share/{token}/tree", srv.GetPublicShareTree)
 	// #3 ".pdf on a share URL" trick. Caddy rewrites /share/<tok>.pdf →
 	// /api/share/{token}/pdf (and the descendant /p/<id>.pdf → ?p=<id>). Public
@@ -308,6 +313,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	mux.HandleFunc("GET /spaces/{id}", srv.HandleSpaceOG)
 	mux.HandleFunc("GET /spaces/{id}/og.png", srv.HandleSpaceOGImage)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}", srv.GetPublicSpacePage)
+	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/include", srv.GetPublicSpacePageInclude)
+	mux.HandleFunc("GET /api/public/spaces/{id}/macros/{macro_id}", srv.GetPublicSpaceMacro)
 	mux.HandleFunc("POST /api/public/spaces/{id}/render/plantuml", srv.RenderPlantumlPublicSpace)
 	mux.HandleFunc("GET /api/public/spaces/{id}/pages/{page_id}/md", srv.ExportPublicSpacePageMarkdown)
 	// Public decks: the live Present SPA + the first-slide cover, for public spaces.

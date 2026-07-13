@@ -511,6 +511,15 @@ func (s *Server) createPageCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	if err := syncPageLinks(ctx, tx, id, body); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_links failed"}
 	}
+	if err := syncPageMacros(ctx, tx, id, req.SpaceID, body); err != nil {
+		if ae, ok := err.(*apiErr); ok {
+			return models.Page{}, ae
+		}
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_macros failed"}
+	}
+	if err := syncMacroRefs(ctx, tx, id, body); err != nil {
+		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync macro_refs failed"}
+	}
 	if err := appendChangeLog(ctx, tx, req.SpaceID, id, changeCreated); err != nil {
 		return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "append change_log failed"}
 	}
@@ -759,6 +768,19 @@ func applyUpdateTx(ctx context.Context, tx *sql.Tx, id int64, req pageUpdateRequ
 	if req.Body != nil {
 		if err := syncPageLinks(ctx, tx, id, bodyStripped); err != nil {
 			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_links failed"}
+		}
+		preview, err := selectPageByIDTx(ctx, tx, id)
+		if err != nil {
+			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "fetch page for macro sync failed"}
+		}
+		if err := syncPageMacros(ctx, tx, id, preview.SpaceID, bodyStripped); err != nil {
+			if ae, ok := err.(*apiErr); ok {
+				return models.Page{}, ae
+			}
+			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync page_macros failed"}
+		}
+		if err := syncMacroRefs(ctx, tx, id, bodyStripped); err != nil {
+			return models.Page{}, &apiErr{http.StatusInternalServerError, "internal", "sync macro_refs failed"}
 		}
 	}
 	p, err := selectPageByIDTx(ctx, tx, id)

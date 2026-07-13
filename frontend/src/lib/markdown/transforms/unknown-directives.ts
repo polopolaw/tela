@@ -40,6 +40,8 @@ export const KNOWN_DIRECTIVE_NAMES = new Set<string>([
   'calendar',
   'timeline',
   'poll',
+  'macro-def',
+  'macro',
 ])
 
 const DIRECTIVE_TYPES = new Set<string>([

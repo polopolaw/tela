@@ -30,6 +30,7 @@ import { insertStatGrid } from './milkdown-stat-grid'
 import { insertTimeline } from './milkdown-timeline'
 import { insertCalendar } from './milkdown-calendar'
 import { insertPoll } from './milkdown-poll'
+import { insertMacroDef, insertMacroRef } from './milkdown-macro'
 import { insertPullquote } from './milkdown-pullquote'
 import { insertEmbed } from './milkdown-embed'
 import { openEmojiPicker } from './milkdown-emoji'
@@ -78,6 +79,8 @@ const RUN: Record<string, (ctx: Ctx) => void> = {
   timeline: insertTimeline,
   calendar: insertCalendar,
   poll: insertPoll,
+  'macro-def': insertMacroDef,
+  macro: insertMacroRef,
   emoji: openEmojiPicker,
   date: (ctx) => {
     const view = ctx.get(editorViewCtx)

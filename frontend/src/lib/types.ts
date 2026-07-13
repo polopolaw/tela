@@ -110,6 +110,17 @@ export interface Backlink {
   snippet: string
 }
 
+// Page that live-includes this page's macros or the whole page body.
+export interface MacroInclude {
+  page_id: number
+  space_id: number
+  space_name: string
+  title: string
+  breadcrumb: string[]
+  kind: 'macro' | 'page'
+  macro_id?: string
+}
+
 // A semantically-related page from GET /api/pages/{id}/related — computed from
 // stored chunk embeddings (no live model call), ranked by cosine similarity to
 // the source page's centroid. Unlike a Backlink, no human ever drew this edge.

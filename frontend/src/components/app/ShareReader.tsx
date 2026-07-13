@@ -79,6 +79,7 @@ export function ShareReaderView({
       aliveWikilinkIds={inScopePageIds}
       wikilinkResolveIndex={wikilinkResolveIndex}
       onNavigateWikilink={onNavigateWikilink}
+      shareToken={token}
       sidebar={showSidebar ? <ShareSidebar token={token} pages={pages} /> : undefined}
       topbarLeading={
         /* Wordmark → apex marketing landing. Plain <a> (full nav) for the same

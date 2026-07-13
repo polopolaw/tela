@@ -48,7 +48,12 @@ func (s *Server) Backlinks(w http.ResponseWriter, r *http.Request) {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"backlinks": out})
+	macroIncludes, ae := s.macroIncludesCore(r.Context(), u, k, id)
+	if ae != nil {
+		writeError(w, ae.Status, ae.Code, ae.Message)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"backlinks": out, "macro_includes": macroIncludes})
 }
 
 // backlinksCore is the transport-agnostic core behind GET /api/pages/{id}/backlinks
