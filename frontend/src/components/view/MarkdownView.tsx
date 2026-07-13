@@ -25,6 +25,11 @@ import {
   CALENDAR_EVENT_RE,
 } from '../../lib/blocks/calendar-grid'
 import { accentForValue, statLineClass } from '../../lib/blocks/stat-trend'
+import {
+  isSubheaderRow,
+  mdastCellPlainText,
+  tableCellGlyphClass,
+} from '../../lib/blocks/table'
 import { wikilinkSlug, wikilinkHrefHash } from '../../lib/markdown/transforms/wikilink'
 import { isSafeUrl } from '../../lib/markdown/remark-safe-links'
 import { embedIframeSrc } from '../../lib/markdown/embed'
@@ -785,31 +790,49 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       const align = (node.align as (string | null)[] | undefined) ?? []
       const rows = node.children ?? []
       const [head, ...bodyRows] = rows
+      const renderCell = (
+        cell: MdNode,
+        i: number,
+        Tag: 'th' | 'td',
+        cellKey: string,
+      ) => {
+        const glyphClass = tableCellGlyphClass(mdastCellPlainText(cell))
+        return (
+          <Tag key={cellKey} style={alignStyle(align[i])} className={glyphClass}>
+            {renderChildren(cell)}
+          </Tag>
+        )
+      }
       return (
-        <table key={key}>
-          {head ? (
-            <thead>
-              <tr>
-                {(head.children ?? []).map((cell, i) => (
-                  <th key={i} style={alignStyle(align[i])}>
-                    {renderChildren(cell)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          ) : null}
-          <tbody>
-            {bodyRows.map((row, r) => (
-              <tr key={r}>
-                {(row.children ?? []).map((cell, i) => (
-                  <td key={i} style={alignStyle(align[i])}>
-                    {renderChildren(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div key={key} className="tableWrapper">
+          <table>
+            {head ? (
+              <thead>
+                <tr>
+                  {(head.children ?? []).map((cell, i) =>
+                    renderCell(cell, i, 'th', `h-${i}`),
+                  )}
+                </tr>
+              </thead>
+            ) : null}
+            <tbody>
+              {bodyRows.map((row, r) => {
+                const cells = row.children ?? []
+                const subheader = isSubheaderRow(cells)
+                return (
+                  <tr
+                    key={r}
+                    className={subheader ? 'tela-table-subheader-row' : undefined}
+                  >
+                    {cells.map((cell, i) =>
+                      renderCell(cell, i, 'td', `${r}-${i}`),
+                    )}
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       )
     }
     case 'callout': {

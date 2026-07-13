@@ -112,7 +112,8 @@ import {
   type MacroPickerRequest,
 } from './milkdown-macro'
 import { stampMacroDefIdsInMarkdown } from '../../lib/markdown/stamp-macro-def-ids'
-import { tableEnhancePlugin } from './milkdown-table'
+import { tableEnhancePlugin, createTableKeymapPlugin, insertNumberedColumnCommand, toggleSubheaderRowCommand, toggleTableHeaderRowCommand } from './milkdown-table'
+import { tableToolbarPlugin, TableToolbarView } from './milkdown-table-toolbar'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
   emojiInputRule,
@@ -523,6 +524,9 @@ function MilkdownEditorInner({
           ctx.set(bubblePlugin.key, {
             view: pluginViewFactory({ component: BubbleToolbarView }),
           })
+          ctx.set(tableToolbarPlugin.key, {
+            view: pluginViewFactory({ component: TableToolbarView }),
+          })
           ctx.set(wikilinkPlugin.key, {
             view: pluginViewFactory({ component: WikilinkView }),
           })
@@ -665,7 +669,8 @@ function MilkdownEditorInner({
         // Editable, non-share.
         if (wikilinkMode !== 'share' && !readOnly) {
           const tableEdgeSelect = createTableEdgeSelectPlugin()
-          ctx.update(prosePluginsCtx, (existing) => [tableEdgeSelect, ...existing])
+          const tableKeymap = createTableKeymapPlugin()
+          ctx.update(prosePluginsCtx, (existing) => [tableKeymap, tableEdgeSelect, ...existing])
         }
 
         // Paste-as-plain-text (Cmd/Ctrl+Shift+V). Prepended last so its
@@ -842,6 +847,9 @@ function MilkdownEditorInner({
       // column, reader-side sort/filter). Enhances the stock table; no new
       // node. See milkdown-table.ts.
       .use(tableEnhancePlugin)
+      .use(insertNumberedColumnCommand)
+      .use(toggleSubheaderRowCommand)
+      .use(toggleTableHeaderRowCommand)
       // Undo/redo: in collab mode y-prosemirror's yUndoPlugin owns history
       // (it's Yjs-aware). prosemirror-history MUST NOT run alongside it — it
       // records and re-applies the remote ySync transactions, fighting the CRDT
@@ -857,6 +865,7 @@ function MilkdownEditorInner({
       .use(codeBlockNodeView)
       .use(slashPlugin)
       .use(bubblePlugin)
+      .use(tableToolbarPlugin)
       .use(wikilinkPlugin)
       // Emoji shortcodes: `:rocket:` → 🚀 input rule + a caret-anchored
       // `:query` autocomplete picker. The Unicode char is what's stored in the

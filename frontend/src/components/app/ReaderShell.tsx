@@ -37,6 +37,7 @@ import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { SummaryTitle } from './SummaryHint'
 import { WikilinkHoverPreview } from './wikilink-hover-preview'
 import { MarkdownView } from '../view/MarkdownView'
+import { enhanceReadonlyTablesInRoot } from '../../lib/blocks/table'
 
 // Footnotes. MarkdownView already renders `.reader-footnote-def` (id `fn-<label>`)
 // and `.reader-footnote-ref` (id `fnref-<label>`, linking to its def). Here the
@@ -272,6 +273,7 @@ export function ReaderShell({
       headingsRef.current = headings
       setToc(entries)
       wireFootnotes(root)
+      enhanceReadonlyTablesInRoot(root)
       scrollToLocationHash()
       // PDF export readiness signal (gotenberg waits on this). Wait for fonts,
       // then for any charts to finish painting (ECharts lazy-loads ~1MB + renders
