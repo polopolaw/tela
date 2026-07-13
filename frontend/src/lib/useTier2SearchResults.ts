@@ -25,7 +25,7 @@ export function useTier2SearchResults(
   const searchQuery = useQuery<SearchResult[]>({
     queryKey: ['search', trimmedQuery],
     queryFn: ({ signal }) =>
-      searchPages(trimmedQuery, signal).then((r) => r.results),
+      searchPages(trimmedQuery, { signal }).then((r) => r.results),
     enabled: trimmedQuery.length > 0,
     staleTime: 30_000,
     gcTime: 5 * 60_000,

@@ -21,6 +21,7 @@ export interface MacroListItem {
   macro_id: string
   page_id: number
   title: string
+  body: string
   updated_at: string
 }
 
@@ -35,7 +36,8 @@ export const macroKeys = {
     [...macroKeys.all, 'detail', id, surface.shareToken ?? '', surface.publicSpaceId ?? 0] as const,
   pageInclude: (pageId: number, surface: MacroSurface = {}) =>
     [...macroKeys.all, 'page-include', pageId, surface.shareToken ?? '', surface.publicSpaceId ?? 0] as const,
-  list: (spaceId: number) => [...macroKeys.all, 'list', spaceId] as const,
+  list: (spaceId: number, query?: string) =>
+    [...macroKeys.all, 'list', spaceId, query ?? ''] as const,
 }
 
 async function macroJsonFetch<T>(path: string): Promise<T> {
@@ -109,9 +111,15 @@ export async function fetchPageInclude(
   return data.include
 }
 
-export async function fetchMacroList(spaceId: number): Promise<MacroListItem[]> {
+export async function fetchMacroList(
+  spaceId: number,
+  query = '',
+): Promise<MacroListItem[]> {
+  const params = new URLSearchParams({ space_id: String(spaceId) })
+  const q = query.trim()
+  if (q) params.set('q', q)
   const data = await api<{ macros: MacroListItem[] }>(
-    `/api/macros?space_id=${spaceId}`,
+    `/api/macros?${params.toString()}`,
   )
   return data.macros
 }
@@ -140,12 +148,16 @@ export function usePageInclude(
   })
 }
 
-export function useMacroList(spaceId: number | null | undefined) {
+export function useMacroList(
+  spaceId: number | null | undefined,
+  query = '',
+) {
+  const trimmed = query.trim()
   return useQuery({
-    queryKey: macroKeys.list(spaceId ?? 0),
+    queryKey: macroKeys.list(spaceId ?? 0, trimmed),
     enabled: !!spaceId,
     staleTime: 60_000,
-    queryFn: () => fetchMacroList(spaceId!),
+    queryFn: () => fetchMacroList(spaceId!, trimmed),
   })
 }
 

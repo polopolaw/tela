@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -65,6 +66,42 @@ func TestSearch_RanksTitleOverBodyAndScopes(t *testing.T) {
 	if !strings.Contains(body.Snippet, "<mark>") {
 		t.Errorf("body snippet not highlighted: %q", body.Snippet)
 	}
+}
+
+func TestSearch_SpaceFilter(t *testing.T) {
+	ts, d := newWiredServer(t)
+	alice := seedUser(t, d, "alice", "alicepw12", false)
+	bob := seedUser(t, d, "bob", "bobpw1234", false)
+	aSpace := seedSpace(t, d, "Alpha", "alpha", alice)
+	bSpace := seedSpace(t, d, "Bravo", "bravo", bob)
+	alphaPage := mustPage(t, d, aSpace, "Alpha Deploy", "alpha deploy notes")
+	mustPage(t, d, bSpace, "Bravo Deploy", "bravo deploy notes")
+
+	c := loginClient(t, ts, "alice", "alicepw12")
+	hits := getSearchInSpace(t, c, ts.URL, "deploy", aSpace)
+	if len(hits) != 1 || hits[0].PageID != alphaPage {
+		t.Fatalf("space-filtered hits = %+v want only alpha page %d", hits, alphaPage)
+	}
+}
+
+func getSearchInSpace(t *testing.T, c *http.Client, base, q string, spaceID int64) []searchHit {
+	t.Helper()
+	u := base + "/api/search?q=" + url.QueryEscape(q) + "&space_id=" + strconv.FormatInt(spaceID, 10)
+	resp, err := c.Get(u)
+	if err != nil {
+		t.Fatalf("search %q space %d: %v", q, spaceID, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("search %q space %d: status %d", q, spaceID, resp.StatusCode)
+	}
+	var out struct {
+		Results []searchHit `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	return out.Results
 }
 
 func TestSearch_TolerantOfPunctuation(t *testing.T) {

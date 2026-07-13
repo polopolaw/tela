@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/macromd"
@@ -87,6 +88,7 @@ type macroListItem struct {
 	MacroID   string `json:"macro_id"`
 	PageID    int64  `json:"page_id"`
 	Title     string `json:"title"`
+	Body      string `json:"body"`
 	UpdatedAt string `json:"updated_at"`
 }
 
@@ -153,7 +155,8 @@ func (s *Server) ListMacros(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, _ := auth.APIKeyFromContext(r.Context())
-	items, ae := s.listMacrosCore(r.Context(), u, k, spaceID)
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	items, ae := s.listMacrosCore(r.Context(), u, k, spaceID, q)
 	if ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return
@@ -161,16 +164,47 @@ func (s *Server) ListMacros(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"macros": items})
 }
 
-func (s *Server) listMacrosCore(ctx context.Context, u *auth.User, k *auth.APIKey, spaceID int64) ([]macroListItem, *apiErr) {
+func macroSearchPattern(query string) string {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return ""
+	}
+	query = strings.ReplaceAll(query, `\`, `\\`)
+	query = strings.ReplaceAll(query, `%`, `\%`)
+	query = strings.ReplaceAll(query, `_`, `\_`)
+	return "%" + query + "%"
+}
+
+func (s *Server) listMacrosCore(ctx context.Context, u *auth.User, k *auth.APIKey, spaceID int64, query string) ([]macroListItem, *apiErr) {
 	if _, ae := s.membershipCore(ctx, u, k, spaceID); ae != nil {
 		return nil, ae
 	}
-	rows, err := s.DB.QueryContext(ctx, `
-		SELECT m.macro_id, m.page_id, p.title, m.updated_at
-		  FROM page_macros m
-		  JOIN pages p ON p.id = m.page_id AND p.deleted_at IS NULL
-		 WHERE m.space_id = $1
-		 ORDER BY p.title ASC, m.macro_id ASC`, spaceID)
+	query = strings.TrimSpace(query)
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if query == "" {
+		rows, err = s.DB.QueryContext(ctx, `
+			SELECT m.macro_id, m.page_id, p.title, m.body, m.updated_at
+			  FROM page_macros m
+			  JOIN pages p ON p.id = m.page_id AND p.deleted_at IS NULL
+			 WHERE m.space_id = $1
+			 ORDER BY p.title ASC, m.macro_id ASC`, spaceID)
+	} else {
+		rows, err = s.DB.QueryContext(ctx, `
+			SELECT m.macro_id, m.page_id, p.title, m.body, m.updated_at
+			  FROM page_macros m
+			  JOIN pages p ON p.id = m.page_id AND p.deleted_at IS NULL
+			 WHERE m.space_id = $1
+			   AND (
+			     m.macro_id ILIKE $2 ESCAPE '\'
+			     OR p.title ILIKE $2 ESCAPE '\'
+			     OR m.body ILIKE $2 ESCAPE '\'
+			   )
+			 ORDER BY p.title ASC, m.macro_id ASC
+			 LIMIT 80`, spaceID, macroSearchPattern(query))
+	}
 	if err != nil {
 		return nil, &apiErr{http.StatusInternalServerError, "internal", "list macros failed"}
 	}
@@ -178,7 +212,7 @@ func (s *Server) listMacrosCore(ctx context.Context, u *auth.User, k *auth.APIKe
 	var out []macroListItem
 	for rows.Next() {
 		var it macroListItem
-		if err := rows.Scan(&it.MacroID, &it.PageID, &it.Title, &it.UpdatedAt); err != nil {
+		if err := rows.Scan(&it.MacroID, &it.PageID, &it.Title, &it.Body, &it.UpdatedAt); err != nil {
 			return nil, &apiErr{http.StatusInternalServerError, "internal", "scan macro row failed"}
 		}
 		out = append(out, it)

@@ -59,7 +59,13 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	k, _ := auth.APIKeyFromContext(r.Context())
-	results, ae := s.searchCore(r.Context(), u, k, r.URL.Query().Get("q"), nil, searchLimit)
+	var spaceFilter *int64
+	if sid := strings.TrimSpace(r.URL.Query().Get("space_id")); sid != "" {
+		if id, err := strconv.ParseInt(sid, 10, 64); err == nil && id > 0 {
+			spaceFilter = &id
+		}
+	}
+	results, ae := s.searchCore(r.Context(), u, k, r.URL.Query().Get("q"), spaceFilter, searchLimit)
 	if ae != nil {
 		writeError(w, ae.Status, ae.Code, ae.Message)
 		return

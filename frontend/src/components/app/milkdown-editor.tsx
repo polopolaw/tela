@@ -1299,6 +1299,7 @@ function MilkdownEditorInner({
       {macroPicker ? (
         <MacroPicker
           spaceId={spaceId}
+          excludePageId={pageId > 0 ? pageId : undefined}
           anchor={macroPicker.anchor}
           onSelect={(sel) => {
             get()?.action((ctx) =>

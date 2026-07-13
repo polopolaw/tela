@@ -110,12 +110,15 @@ export interface SearchResult {
 
 export function searchPages(
   q: string,
-  signal?: AbortSignal,
+  opts?: { signal?: AbortSignal; spaceId?: number },
 ): Promise<{ results: SearchResult[] }> {
-  return api<{ results: SearchResult[] }>(
-    `/api/search?q=${encodeURIComponent(q)}`,
-    { signal },
-  )
+  const params = new URLSearchParams({ q })
+  if (opts?.spaceId != null && opts.spaceId > 0) {
+    params.set('space_id', String(opts.spaceId))
+  }
+  return api<{ results: SearchResult[] }>(`/api/search?${params.toString()}`, {
+    signal: opts?.signal,
+  })
 }
 
 // A semantic (RAG) chunk hit — meaning-aware, chunk-level. heading_path is the

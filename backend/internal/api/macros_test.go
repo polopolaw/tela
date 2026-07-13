@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -317,6 +318,7 @@ func TestMacros_HTTP_FullFlow(t *testing.T) {
 	var list struct {
 		Macros []struct {
 			MacroID string `json:"macro_id"`
+			Body    string `json:"body"`
 		} `json:"macros"`
 	}
 	if err := json.NewDecoder(resp6.Body).Decode(&list); err != nil {
@@ -324,6 +326,31 @@ func TestMacros_HTTP_FullFlow(t *testing.T) {
 	}
 	if len(list.Macros) != 1 || list.Macros[0].MacroID != "m_live" {
 		t.Fatalf("macros list = %+v", list.Macros)
+	}
+	if !strings.Contains(list.Macros[0].Body, "Hello from macro") {
+		t.Fatalf("list body = %q", list.Macros[0].Body)
+	}
+
+	// Search macros by block body text.
+	resp7, err := c.Get(fmt.Sprintf("%s/api/macros?space_id=%d&q=%s", ts.URL, spaceID, url.QueryEscape("Hello from macro")))
+	if err != nil {
+		t.Fatalf("search macros: %v", err)
+	}
+	defer resp7.Body.Close()
+	if resp7.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp7.Body)
+		t.Fatalf("search macros status=%d body=%s", resp7.StatusCode, b)
+	}
+	var searched struct {
+		Macros []struct {
+			MacroID string `json:"macro_id"`
+		} `json:"macros"`
+	}
+	if err := json.NewDecoder(resp7.Body).Decode(&searched); err != nil {
+		t.Fatalf("decode search: %v", err)
+	}
+	if len(searched.Macros) != 1 || searched.Macros[0].MacroID != "m_live" {
+		t.Fatalf("search macros = %+v", searched.Macros)
 	}
 }
 

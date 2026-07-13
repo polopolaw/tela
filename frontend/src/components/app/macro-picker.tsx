@@ -5,9 +5,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import { useMacro, useMacroList } from '../../lib/queries/macros'
-import { useAllPages, usePage } from '../../lib/queries/pages'
-import type { PageListItem } from '../../lib/types'
+import { useQuery } from '@tanstack/react-query'
+import { searchPages } from '../../lib/api'
+import { useMacroList } from '../../lib/queries/macros'
+import { useDebouncedValue } from '../../lib/useDebouncedValue'
 import { previewExcerpt } from './wikilink-hover-preview'
 import { Input } from '../ui/input'
 import { cn } from '../../lib/utils'
@@ -19,74 +20,83 @@ export interface MacroPickerSelection {
 
 export interface MacroPickerProps {
   spaceId: number
+  /** Current page — excluded from whole-page include hits. */
+  excludePageId?: number
   anchor: { left: number; top: number; bottom: number }
   onSelect: (sel: MacroPickerSelection) => void
   onClose: () => void
 }
 
-type Tab = 'macros' | 'pages'
+type PickerRow =
+  | {
+      kind: 'block'
+      macroId: string
+      pageId: number
+      title: string
+      excerpt: string
+    }
+  | {
+      kind: 'page'
+      pageId: number
+      title: string
+      excerpt: string
+    }
 
-function filterMacros(
-  items: { macro_id: string; title: string; page_id: number }[],
-  q: string,
-) {
-  const needle = q.trim().toLowerCase()
-  if (!needle) return items
-  return items.filter(
-    (m) =>
-      m.macro_id.toLowerCase().includes(needle) ||
-      m.title.toLowerCase().includes(needle),
-  )
-}
-
-function filterPages(items: PageListItem[], spaceId: number, q: string) {
-  const needle = q.trim().toLowerCase()
-  return items
-    .filter((p) => p.space_id === spaceId)
-    .filter(
-      (p) =>
-        !needle ||
-        p.title.toLowerCase().includes(needle) ||
-        String(p.id).includes(needle),
-    )
-    .slice(0, 80)
+function snippetToPlain(snippet: string): string {
+  return snippet.replace(/<\/?mark>/gi, '').trim()
 }
 
 export function MacroPicker({
   spaceId,
+  excludePageId = 0,
   anchor,
   onSelect,
   onClose,
 }: MacroPickerProps) {
   const rootRef = useRef<HTMLDivElement>(null)
-  const [tab, setTab] = useState<Tab>('macros')
   const [query, setQuery] = useState('')
   const [activeIdx, setActiveIdx] = useState(0)
+  const debouncedQuery = useDebouncedValue(query.trim(), 150)
 
-  const macrosQuery = useMacroList(spaceId > 0 ? spaceId : null)
-  const allPages = useAllPages()
+  const macrosQuery = useMacroList(spaceId > 0 ? spaceId : null, debouncedQuery)
+  const pagesQuery = useQuery({
+    queryKey: ['macro-picker-pages', spaceId, debouncedQuery],
+    enabled: spaceId > 0 && debouncedQuery.length > 0,
+    staleTime: 30_000,
+    queryFn: ({ signal }) =>
+      searchPages(debouncedQuery, { spaceId, signal }).then((r) => r.results),
+  })
 
-  const macroItems = useMemo(
-    () => filterMacros(macrosQuery.data ?? [], query),
-    [macrosQuery.data, query],
-  )
-  const pageItems = useMemo(
-    () => filterPages(allPages.data ?? [], spaceId, query),
-    [allPages.data, spaceId, query],
-  )
+  const rows = useMemo(() => {
+    const out: PickerRow[] = []
+    for (const m of macrosQuery.data ?? []) {
+      out.push({
+        kind: 'block',
+        macroId: m.macro_id,
+        pageId: m.page_id,
+        title: m.title,
+        excerpt: previewExcerpt(m.body, 140),
+      })
+    }
+    if (debouncedQuery.length > 0) {
+      for (const p of pagesQuery.data ?? []) {
+        if (excludePageId > 0 && p.page_id === excludePageId) continue
+        out.push({
+          kind: 'page',
+          pageId: p.page_id,
+          title: p.title,
+          excerpt: snippetToPlain(p.snippet) || 'Whole-page include',
+        })
+      }
+    }
+    return out
+  }, [macrosQuery.data, pagesQuery.data, debouncedQuery, excludePageId])
 
-  const listLen = tab === 'macros' ? macroItems.length : pageItems.length
-  const activeMacroId =
-    tab === 'macros' ? macroItems[activeIdx]?.macro_id : undefined
-  const activePageId =
-    tab === 'pages' ? pageItems[activeIdx]?.id : undefined
-
-  const macroPreview = useMacro(activeMacroId)
-  const pagePreview = usePage(activePageId)
+  const activeRow = rows[activeIdx]
 
   useEffect(() => {
     setActiveIdx(0)
-  }, [tab, query])
+  }, [debouncedQuery, rows.length])
 
   useLayoutEffect(() => {
     const el = rootRef.current
@@ -109,7 +119,7 @@ export function MacroPicker({
       el.style.left = `${left}px`
     })
     return () => cancelAnimationFrame(rafId)
-  }, [anchor])
+  }, [anchor, rows.length])
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -121,34 +131,27 @@ export function MacroPicker({
       }
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setActiveIdx((i) => (listLen ? (i + 1) % listLen : 0))
+        setActiveIdx((i) => (rows.length ? (i + 1) % rows.length : 0))
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setActiveIdx((i) => (listLen ? (i - 1 + listLen) % listLen : 0))
+        setActiveIdx((i) => (rows.length ? (i - 1 + rows.length) % rows.length : 0))
         return
       }
-      if (e.key === 'Enter' && listLen > 0) {
+      if (e.key === 'Enter' && rows.length > 0) {
         e.preventDefault()
-        if (tab === 'macros') {
-          onSelect({ macroId: macroItems[activeIdx].macro_id })
+        const row = rows[activeIdx]
+        if (row.kind === 'block') {
+          onSelect({ macroId: row.macroId })
         } else {
-          onSelect({ pageId: pageItems[activeIdx].id })
+          onSelect({ pageId: row.pageId })
         }
       }
     }
     document.addEventListener('keydown', onKey, true)
     return () => document.removeEventListener('keydown', onKey, true)
-  }, [
-    activeIdx,
-    listLen,
-    macroItems,
-    pageItems,
-    onClose,
-    onSelect,
-    tab,
-  ])
+  }, [activeIdx, rows, onClose, onSelect])
 
   useEffect(() => {
     function onDown(e: PointerEvent) {
@@ -161,24 +164,28 @@ export function MacroPicker({
     return () => document.removeEventListener('pointerdown', onDown, true)
   }, [onClose])
 
-  const previewTitle =
-    tab === 'macros'
-      ? macroItems[activeIdx]?.title
-      : pageItems[activeIdx]?.title
-  const previewExcerptText =
-    tab === 'macros'
-      ? macroPreview.data
-        ? previewExcerpt(macroPreview.data.body, 400)
-        : macroPreview.isLoading
-          ? 'Loading preview…'
-          : 'Select a macro to preview'
-      : pagePreview.data
-        ? previewExcerpt(pagePreview.data.body, 400)
-        : pagePreview.isLoading
-          ? 'Loading preview…'
-          : activePageId
-            ? `Whole-page include · id ${activePageId}`
-            : 'Select a page to include'
+  const previewTitle = activeRow
+    ? activeRow.kind === 'page'
+      ? `${activeRow.title} (whole page)`
+      : activeRow.title
+    : 'Insert macro'
+  const previewBody = activeRow
+    ? activeRow.kind === 'page'
+      ? activeRow.excerpt
+      : macrosQuery.data?.find((m) => m.macro_id === activeRow.macroId)?.body
+        ? previewExcerpt(
+            macrosQuery.data.find((m) => m.macro_id === activeRow.macroId)!.body,
+            500,
+          )
+        : activeRow.excerpt
+    : debouncedQuery
+      ? 'Type to search reusable blocks and pages in this space'
+      : 'All reusable blocks in this space are listed here — pick one to insert a live include'
+
+  const loading = macrosQuery.isLoading || (debouncedQuery.length > 0 && pagesQuery.isFetching)
+
+  let blockIdx = 0
+  let pageIdx = 0
 
   return (
     <div
@@ -187,36 +194,10 @@ export function MacroPicker({
       aria-label="Insert macro include"
       className="tela-macro-picker"
     >
-      <div className="tela-macro-picker-tabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'macros'}
-          className={cn('tela-macro-picker-tab', tab === 'macros' && 'is-active')}
-          onMouseDown={(e) => {
-            e.preventDefault()
-            setTab('macros')
-          }}
-        >
-          Macros
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={tab === 'pages'}
-          className={cn('tela-macro-picker-tab', tab === 'pages' && 'is-active')}
-          onMouseDown={(e) => {
-            e.preventDefault()
-            setTab('pages')
-          }}
-        >
-          Page include
-        </button>
-      </div>
       <Input
         size="sm"
         className="tela-macro-picker-search"
-        placeholder={tab === 'macros' ? 'Search macros…' : 'Search pages…'}
+        placeholder="Search blocks and pages in this space…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         autoFocus
@@ -225,63 +206,59 @@ export function MacroPicker({
         <div className="tela-macro-picker-list" role="listbox">
           {spaceId <= 0 ? (
             <p className="tela-macro-picker-empty">Space not available</p>
-          ) : tab === 'macros' ? (
-            macrosQuery.isLoading ? (
-              <p className="tela-macro-picker-empty">Loading macros…</p>
-            ) : macroItems.length === 0 ? (
-              <p className="tela-macro-picker-empty">
-                No macros in this space yet. Wrap content in a macro definition first.
-              </p>
-            ) : (
-              macroItems.map((m, i) => (
-                <button
-                  key={m.macro_id}
-                  type="button"
-                  role="option"
-                  aria-selected={i === activeIdx}
-                  className={cn(
-                    'tela-macro-picker-item',
-                    i === activeIdx && 'is-active',
-                  )}
-                  onMouseEnter={() => setActiveIdx(i)}
-                  onMouseDown={(e) => {
-                    e.preventDefault()
-                    onSelect({ macroId: m.macro_id })
-                  }}
-                >
-                  <span className="tela-macro-picker-item-title">{m.title}</span>
-                  <span className="tela-macro-picker-item-meta">{m.macro_id}</span>
-                </button>
-              ))
-            )
-          ) : pageItems.length === 0 ? (
-            <p className="tela-macro-picker-empty">No matching pages</p>
+          ) : loading && rows.length === 0 ? (
+            <p className="tela-macro-picker-empty">Searching…</p>
+          ) : rows.length === 0 ? (
+            <p className="tela-macro-picker-empty">
+              {debouncedQuery
+                ? 'No matching blocks or pages in this space'
+                : 'No reusable blocks in this space yet. Wrap content in a macro definition first.'}
+            </p>
           ) : (
-            pageItems.map((p, i) => (
-              <button
-                key={p.id}
-                type="button"
-                role="option"
-                aria-selected={i === activeIdx}
-                className={cn(
-                  'tela-macro-picker-item',
-                  i === activeIdx && 'is-active',
-                )}
-                onMouseEnter={() => setActiveIdx(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault()
-                  onSelect({ pageId: p.id })
-                }}
-              >
-                <span className="tela-macro-picker-item-title">{p.title}</span>
-                <span className="tela-macro-picker-item-meta">page {p.id}</span>
-              </button>
-            ))
+            rows.map((row, i) => {
+              const showBlockHeader = row.kind === 'block' && blockIdx++ === 0
+              const showPageHeader =
+                row.kind === 'page' && pageIdx++ === 0 && debouncedQuery.length > 0
+              return (
+                <div key={row.kind === 'block' ? `b-${row.macroId}` : `p-${row.pageId}`}>
+                  {showBlockHeader ? (
+                    <div className="tela-macro-picker-section">Reusable blocks</div>
+                  ) : null}
+                  {showPageHeader ? (
+                    <div className="tela-macro-picker-section">Whole pages</div>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={i === activeIdx}
+                    className={cn(
+                      'tela-macro-picker-item',
+                      i === activeIdx && 'is-active',
+                    )}
+                    onMouseEnter={() => setActiveIdx(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      if (row.kind === 'block') {
+                        onSelect({ macroId: row.macroId })
+                      } else {
+                        onSelect({ pageId: row.pageId })
+                      }
+                    }}
+                  >
+                    <span className="tela-macro-picker-item-title">{row.title}</span>
+                    <span className="tela-macro-picker-item-excerpt">{row.excerpt}</span>
+                    {row.kind === 'page' ? (
+                      <span className="tela-macro-picker-item-meta">whole page</span>
+                    ) : null}
+                  </button>
+                </div>
+              )
+            })
           )}
         </div>
         <div className="tela-macro-picker-preview" aria-live="polite">
           <div className="tela-macro-picker-preview-title">{previewTitle}</div>
-          <div className="tela-macro-picker-preview-body">{previewExcerptText}</div>
+          <div className="tela-macro-picker-preview-body">{previewBody}</div>
         </div>
       </div>
     </div>
