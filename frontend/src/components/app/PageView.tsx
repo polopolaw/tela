@@ -33,7 +33,6 @@ import { ApiError } from '../../lib/api'
 import { pushRecentPage } from '../../lib/recentPages'
 import { recordPageView } from '../../lib/recordPageView'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
-import { enhanceReadonlyTablesInRoot } from '../../lib/blocks/table'
 import { parseAppPageHref } from '../../lib/markdown/transforms/wikilink'
 import {
   handleReaderAnchorClick,
@@ -429,7 +428,6 @@ function PageViewer({
     if (!root) return
     requestAnimationFrame(() => {
       stampHeadingAnchors(root)
-      enhanceReadonlyTablesInRoot(root)
       scrollToLocationHash()
     })
   }, [])

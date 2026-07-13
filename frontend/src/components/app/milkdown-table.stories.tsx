@@ -1,65 +1,38 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useEffect, useRef } from 'react'
-import { enhanceReadonlyTable } from '../../lib/blocks/table'
+import { enhanceReadonlyTable } from './milkdown-table'
 
-type Cell = { glyph?: 'check' | 'cross' | 'dash'; text?: string; bold?: boolean }
+// Renders a static GFM-style table with the same classes the decoration plugin
+// adds (glyph cells, featured column) and runs the REAL enhanceReadonlyTable for
+// sort/filter — so the story exercises the actual code, theme-driven.
 
-function RequirementsTable() {
+type Cell = { glyph?: 'check' | 'cross' | 'dash'; text?: string }
+type Row = Cell[]
+
+const HEAD = ['Feature', 'Free', 'Pro', 'Team']
+const ROWS: Row[] = [
+  [{ text: 'Pages' }, { text: '50' }, { text: '5,000' }, { text: 'Unlimited' }],
+  [{ text: 'SSO / SAML' }, { glyph: 'cross' }, { glyph: 'check' }, { glyph: 'check' }],
+  [{ text: 'Audit log' }, { glyph: 'cross' }, { glyph: 'dash' }, { glyph: 'check' }],
+  [{ text: 'Seats' }, { text: '3' }, { text: '25' }, { text: 'Unlimited' }],
+  [{ text: 'API access' }, { glyph: 'check' }, { glyph: 'check' }, { glyph: 'check' }],
+  [{ text: 'Priority support' }, { glyph: 'cross' }, { glyph: 'check' }, { glyph: 'check' }],
+  [{ text: 'Custom domain' }, { glyph: 'cross' }, { glyph: 'check' }, { glyph: 'check' }],
+]
+
+function ComparisonTable() {
   const ref = useRef<HTMLTableElement>(null)
   useEffect(() => {
     if (ref.current) enhanceReadonlyTable(ref.current)
   }, [])
-  const head = ['Клиент', 'Требование', 'Статус']
-  const rows: Cell[][] = [
-    [
-      { text: 'Пиво Инкорпорейтед' },
-      { text: 'SSO через SAML' },
-      { glyph: 'cross' },
-    ],
-    [
-      { text: 'Пиво Инкорпорейтед' },
-      { text: 'Экспорт в PDF' },
-      { glyph: 'check' },
-    ],
-    [
-      { text: 'Кофе Лтд' },
-      { text: 'Двухфакторная аутентификация' },
-      { glyph: 'dash' },
-    ],
-    [
-      { text: 'Кофе Лтд' },
-      { text: 'API доступ' },
-      { glyph: 'check' },
-    ],
-    [
-      { text: 'Чай Холдинг' },
-      { text: 'Кастомный домен' },
-      { glyph: 'cross' },
-    ],
-    [
-      { text: 'Чай Холдинг' },
-      { text: 'Аудит-лог' },
-      { glyph: 'check' },
-    ],
-    [
-      { text: 'Сок ООО' },
-      { text: 'Webhooks' },
-      { glyph: 'dash' },
-    ],
-    [
-      { text: 'Сок ООО' },
-      { text: 'Роли и права' },
-      { glyph: 'check' },
-    ],
-  ]
   return (
     <div className="tela-milkdown">
-      <div className="ProseMirror" style={{ maxWidth: '48rem' }}>
+      <div className="ProseMirror" style={{ maxWidth: '40rem' }}>
         <div className="tableWrapper">
           <table ref={ref}>
             <thead>
               <tr>
-                {head.map((h) => (
+                {HEAD.map((h) => (
                   <th key={h}>
                     <p>{h}</p>
                   </th>
@@ -67,58 +40,8 @@ function RequirementsTable() {
               </tr>
             </thead>
             <tbody>
-              <tr className="tela-table-subheader-row">
-                {['Пиво Инкорпорейтед', '', ''].map((t, i) => (
-                  <td key={i}>
-                    <p>
-                      <strong>{t}</strong>
-                    </p>
-                  </td>
-                ))}
-              </tr>
-              {rows.slice(0, 2).map((row, r) => (
+              {ROWS.map((row, r) => (
                 <tr key={r}>
-                  {row.map((cell, c) => (
-                    <td
-                      key={c}
-                      className={
-                        cell.glyph
-                          ? `tela-cell-glyph tela-cell-glyph-${cell.glyph}`
-                          : undefined
-                      }
-                    >
-                      <p>{cell.glyph ?? cell.text}</p>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              <tr className="tela-table-subheader-row">
-                {['Кофе Лтд', '', ''].map((t, i) => (
-                  <td key={i}>
-                    <p>
-                      <strong>{t}</strong>
-                    </p>
-                  </td>
-                ))}
-              </tr>
-              {rows.slice(2, 4).map((row, r) => (
-                <tr key={r + 2}>
-                  {row.map((cell, c) => (
-                    <td
-                      key={c}
-                      className={
-                        cell.glyph
-                          ? `tela-cell-glyph tela-cell-glyph-${cell.glyph}`
-                          : undefined
-                      }
-                    >
-                      <p>{cell.glyph ?? cell.text}</p>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-              {rows.slice(4).map((row, r) => (
-                <tr key={r + 4}>
                   {row.map((cell, c) => (
                     <td
                       key={c}
@@ -141,15 +64,15 @@ function RequirementsTable() {
   )
 }
 
-const meta: Meta<typeof RequirementsTable> = {
+const meta: Meta<typeof ComparisonTable> = {
   title: 'App/Milkdown Table',
-  component: RequirementsTable,
+  component: ComparisonTable,
   parameters: { layout: 'padded' },
 }
 export default meta
 
-type Story = StoryObj<typeof RequirementsTable>
+type Story = StoryObj<typeof ComparisonTable>
 
-export const RequirementsGathering: Story = {
-  name: 'Requirements matrix (per-column filter + subheaders)',
+export const Comparison: Story = {
+  name: 'Feature comparison (glyphs + featured + sort/filter)',
 }

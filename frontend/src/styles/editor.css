@@ -1087,7 +1087,7 @@
     padding: 0;
   }
 
-  /* Sort headers + per-column filter row (reader-side). */
+  /* Sort headers + filter box (reader-side, added by the plugin on large tables). */
   .tela-milkdown .ProseMirror table th.tela-th-sortable {
     cursor: pointer;
     user-select: none;
@@ -1112,13 +1112,6 @@
   .tela-table-filter {
     margin: 0 0 var(--space-2);
   }
-  .tela-milkdown .ProseMirror table tr.tela-table-filter-row th {
-    padding: var(--space-1) var(--space-2);
-    background: var(--surface-1);
-    font-weight: 400;
-    border-bottom: 1px solid var(--border-subtle);
-  }
-  .tela-milkdown .ProseMirror table .tela-table-filter-cell input,
   .tela-table-filter input {
     width: 100%;
     max-width: 18rem;
@@ -1136,91 +1129,6 @@
   }
   .tela-table-filter input::placeholder {
     color: var(--text-muted);
-  }
-
-  /* Subheader rows — entire row bold in markdown (`**…**` per cell). */
-  .tela-milkdown .ProseMirror table tr.tela-table-subheader-row > th,
-  .tela-milkdown .ProseMirror table tr.tela-table-subheader-row > td {
-    background: var(--surface-2);
-    font-weight: 600;
-  }
-
-  /* Table edit toolbar (floating, when caret is inside a table). */
-  .tela-table-toolbar {
-    position: fixed;
-    z-index: 50;
-    display: none;
-    align-items: center;
-    gap: var(--space-1);
-    padding: var(--space-1);
-    background: var(--surface-1);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-md);
-  }
-  .tela-table-toolbar[data-show='true'] {
-    display: flex;
-  }
-  .tela-table-toolbar-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-secondary);
-    cursor: pointer;
-  }
-  .tela-table-toolbar-btn:hover {
-    background: var(--surface-2);
-    color: var(--text-primary);
-  }
-
-  /* Hover + buttons on table edges (edit mode). */
-  .tela-milkdown .ProseMirror .tableWrapper.tela-table-wrapper-enhanced {
-    position: relative;
-  }
-  .tela-table-add-col,
-  .tela-table-add-row {
-    position: absolute;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-sm);
-    background: var(--surface-1);
-    color: var(--text-muted);
-    font-size: var(--text-sm);
-    line-height: 1;
-    cursor: pointer;
-    z-index: 2;
-  }
-  .tela-table-wrapper-enhanced:hover .tela-table-add-col,
-  .tela-table-wrapper-enhanced:hover .tela-table-add-row,
-  .tela-table-wrapper-enhanced:focus-within .tela-table-add-col,
-  .tela-table-wrapper-enhanced:focus-within .tela-table-add-row {
-    display: flex;
-  }
-  .tela-table-add-col {
-    top: 50%;
-    right: calc(-1 * var(--space-6));
-    transform: translateY(-50%);
-  }
-  .tela-table-add-row {
-    bottom: calc(-1 * var(--space-6));
-    left: 50%;
-    transform: translateX(-50%);
-  }
-  .tela-table-add-col:hover,
-  .tela-table-add-row:hover {
-    color: var(--text-primary);
-    border-color: var(--accent);
   }
 
   /* M19 — stat grid (:::stats). Responsive grid of KPI tiles. The trend glyph

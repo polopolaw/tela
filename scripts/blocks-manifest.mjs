@@ -40,8 +40,6 @@ const INFRA = new Set([
   'milkdown-plain-paste', // Cmd/Ctrl+Shift+V paste-as-plain-text keymap (no node)
   'milkdown-slash', // the slash menu itself
   'milkdown-table-select', // table cell-selection behavior (no node)
-  'milkdown-table-keymap', // Enter/Tab table grid extension keymap (no node)
-  'milkdown-table-toolbar', // floating table edit toolbar (no node)
   'milkdown-upload-placeholder', // transient upload placeholder decoration (no node)
   'milkdown-templates', // composed snippets, not a block type
   'milkdown-excalidraw-presence', // live "editing" badge decoration for the `excalidraw` block (no node)

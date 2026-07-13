@@ -1,60 +1,52 @@
-import { $command, $prose } from '@milkdown/kit/utils'
-import { commandsCtx, editorViewCtx } from '@milkdown/kit/core'
-import { Plugin, PluginKey, TextSelection } from '@milkdown/kit/prose/state'
-import type { Schema } from '@milkdown/kit/prose/model'
-import type { Transaction } from '@milkdown/kit/prose/state'
+import { $prose } from '@milkdown/kit/utils'
+import { Plugin, PluginKey } from '@milkdown/kit/prose/state'
 import { Decoration, DecorationSet } from '@milkdown/kit/prose/view'
 import type { Node as ProseNode } from '@milkdown/kit/prose/model'
-import {
-  addColAfterCommand,
-  addRowAfterCommand,
-} from '@milkdown/kit/preset/gfm'
-import {
-  addColumn,
-  findTable,
-  isInTable,
-  selectedRect,
-  selectionCell,
-  TableMap,
-  toggleHeaderRow,
-} from '@milkdown/kit/prose/tables'
-import {
-  enhanceReadonlyTable,
-  enhanceReadonlyTablesInRoot,
-  glyphFor,
-} from '../../lib/blocks/table'
 
-// Re-export read-mode helpers for hosts (MarkdownView, ReaderShell, Storybook).
-export { enhanceReadonlyTable, enhanceReadonlyTablesInRoot, glyphFor }
+// M19 — table upgrades, folded into the stock GFM table (no new block type, no
+// new syntax, perfect round-trip). Everything is derived from cell content or
+// is a reader-side affordance:
+//
+//   • Glyph cells — a cell whose entire text is `check`/`cross`/`dash` (or
+//     ✓/✗/–, yes/no) renders as a themed, semantically-coloured icon
+//     (check=green, cross=red, dash=muted). Click into the cell to edit the
+//     keyword (the icon reveals the text on focus). This is the comparison-
+//     matrix ✓/✗ grid, absorbed into the table.
+//   • Sticky first column — the row-label column pins while you scroll a wide
+//     table horizontally (pure CSS; invisible when there's nothing to scroll).
+//   • Sort + filter — in read-only / reader / share / PDF views, a genuinely
+//     large table (≥8 rows) gets clickable sort headers + a filter box. Reader-
+//     only so it never fights editing; small tables stay clean.
+//
+// Glyph cells are ProseMirror node decorations (both edit + read modes, CSS does
+// the visual). Sort/filter is a pure DOM enhancement applied to the rendered
+// read-only table via the plugin's view() — exported standalone so the Storybook
+// story exercises the exact same code path.
 
 const tableKey = new PluginKey('tela-table-enhance')
 
-function isSubheaderRowNode(row: ProseNode): boolean {
-  if (row.type.name !== 'table_row') return false
-  let anyContent = false
-  for (let i = 0; i < row.childCount; i++) {
-    const cell = row.child(i)
-    const text = cell.textContent.trim()
-    if (text) anyContent = true
-    if (!cellIsAllBold(cell)) return false
-  }
-  return anyContent
+// Exact-match glyph keywords (case-insensitive). Symbols pass through unchanged.
+const GLYPHS: Record<string, 'check' | 'cross' | 'dash'> = {
+  check: 'check',
+  '✓': 'check',
+  '✔': 'check',
+  yes: 'check',
+  cross: 'cross',
+  '✗': 'cross',
+  '✕': 'cross',
+  '×': 'cross',
+  no: 'cross',
+  dash: 'dash',
+  '–': 'dash',
+  '—': 'dash',
+  '-': 'dash',
+  'n/a': 'dash',
 }
 
-function cellIsAllBold(cell: ProseNode): boolean {
-  if (cell.childCount === 0) return true
-  for (let i = 0; i < cell.childCount; i++) {
-    const block = cell.child(i)
-    if (block.type.name !== 'paragraph') return false
-    if (block.childCount === 0) continue
-    for (let j = 0; j < block.childCount; j++) {
-      const inline = block.child(j)
-      if (inline.type.name === 'hard_break') continue
-      const strong = inline.marks.some((m) => m.type.name === 'strong')
-      if (!strong && inline.textContent.trim()) return false
-    }
-  }
-  return true
+function glyphFor(text: string): 'check' | 'cross' | 'dash' | null {
+  const t = text.trim()
+  if (!t) return null
+  return GLYPHS[t.toLowerCase()] ?? null
 }
 
 function buildDecorations(doc: ProseNode): DecorationSet {
@@ -64,13 +56,6 @@ function buildDecorations(doc: ProseNode): DecorationSet {
     node.forEach((row, rowOffset) => {
       if (row.type.name !== 'table_row') return
       const rowPos = pos + 1 + rowOffset
-      if (isSubheaderRowNode(row)) {
-        decos.push(
-          Decoration.node(rowPos, rowPos + row.nodeSize, {
-            class: 'tela-table-subheader-row',
-          }),
-        )
-      }
       row.forEach((cell, cellOffset) => {
         const cellPos = rowPos + 1 + cellOffset
         const g = glyphFor(cell.textContent)
@@ -83,148 +68,74 @@ function buildDecorations(doc: ProseNode): DecorationSet {
         }
       })
     })
-    return false
+    return false // handled the whole table; don't descend into its cells
   })
   return DecorationSet.create(doc, decos)
 }
 
-function replaceCellContent(
-  tr: Transaction,
-  cellPos: number,
-  text: string,
-  schema: Schema,
-) {
-  const cell = tr.doc.nodeAt(cellPos)
-  if (!cell) return tr
-  const inner = cellPos + 1
-  const para = schema.nodes.paragraph.create(
-    null,
-    text ? schema.text(text) : null,
-  )
-  return tr.replaceWith(inner, inner + cell.content.size, para)
+// Numeric-aware comparison so "12" sorts after "2", and currency/percent values
+// sort by their number. Falls back to locale string compare.
+function compareCells(a: string, b: string): number {
+  const na = parseFloat(a.replace(/[^0-9.+-]/g, ''))
+  const nb = parseFloat(b.replace(/[^0-9.+-]/g, ''))
+  const aNum = a.trim() !== '' && !Number.isNaN(na) && /\d/.test(a)
+  const bNum = b.trim() !== '' && !Number.isNaN(nb) && /\d/.test(b)
+  if (aNum && bNum) return na - nb
+  return a.trim().localeCompare(b.trim(), undefined, { numeric: true })
 }
 
-export const insertNumberedColumnCommand = $command(
-  'InsertNumberedColumn',
-  () => () => (state, dispatch) => {
-    if (!isInTable(state)) return false
-    const rect = selectedRect(state)
-    let tr = state.tr
-    tr = addColumn(tr, rect, 0)
-    const table = tr.doc.nodeAt(rect.tableStart)
-    if (!table) return false
-    const map = TableMap.get(table)
-    for (let row = 0; row < map.height; row++) {
-      const offset = map.positionAt(row, 0, table)
-      const cellPos = rect.tableStart + 1 + offset
-      const value = row === 0 ? '№' : String(row)
-      tr = replaceCellContent(tr, cellPos, value, state.schema)
-    }
-    if (dispatch) dispatch(tr.scrollIntoView())
-    return true
-  },
-)
-
-export const toggleSubheaderRowCommand = $command(
-  'ToggleSubheaderRow',
-  () => () => (state, dispatch) => {
-    if (!isInTable(state)) return false
-    const $cell = selectionCell(state)
-    const table = findTable($cell)
-    if (!table) return false
-    const map = TableMap.get(table.node)
-    const cellRect = map.findCell($cell.pos - table.start - 1)
-    const row = table.node.child(cellRect.top)
-    const already = isSubheaderRowNode(row)
-    const strong = state.schema.marks.strong
-    if (!strong) return false
-
-    let tr = state.tr
-    for (let c = cellRect.left; c < cellRect.right; c++) {
-      const offset = map.positionAt(cellRect.top, c, table.node)
-      const cellPos = table.start + 1 + offset
-      const cell = tr.doc.nodeAt(cellPos)
-      if (!cell) continue
-      const innerFrom = cellPos + 1
-      const innerTo = cellPos + cell.nodeSize - 1
-      if (already) {
-        tr = tr.removeMark(innerFrom, innerTo, strong)
-      } else {
-        const text = cell.textContent.trim()
-        if (text) {
-          const para = state.schema.nodes.paragraph.create(
-            null,
-            state.schema.text(text, [strong.create()]),
-          )
-          tr = tr.replaceWith(innerFrom, innerTo, para)
-        }
-      }
-    }
-    if (dispatch) dispatch(tr.scrollIntoView())
-    return true
-  },
-)
-
-export const toggleTableHeaderRowCommand = $command(
-  'ToggleTableHeaderRow',
-  () => () => (state, dispatch) => toggleHeaderRow(state, dispatch),
-)
-
-function runCmd(ctx: import('@milkdown/ctx').Ctx, cmd: typeof addColAfterCommand) {
-  ctx.get(commandsCtx).call(cmd.key)
+function cellText(row: HTMLTableRowElement, i: number): string {
+  return row.cells[i]?.textContent?.trim() ?? ''
 }
 
-function focusTableWrapper(
-  wrapper: HTMLElement,
-  ctx: import('@milkdown/ctx').Ctx,
-) {
-  const view = ctx.get(editorViewCtx)
-  const table = wrapper.querySelector('table')
-  if (!table) return
-  try {
-    const pos = view.posAtDOM(table, 0) + 1
-    const sel = TextSelection.near(view.state.doc.resolve(pos), 1)
-    view.dispatch(view.state.tr.setSelection(sel))
-  } catch {
-    // posAtDOM can throw if the table node was just replaced — skip focus.
-  }
-}
+// Pure DOM enhancement: clickable sort headers + (for larger tables) a filter
+// box. Idempotent. Used by the read-only plugin view AND the Storybook story.
+export function enhanceReadonlyTable(table: HTMLTableElement): void {
+  if (table.dataset.telaEnhanced) return
+  const thead = table.tHead
+  const tbody = table.tBodies[0]
+  const headRow = thead?.rows[0]
+  if (!headRow || !tbody) return
+  const headCells = Array.from(headRow.cells)
+  if (headCells.length === 0) return
+  // Only earn the sort/filter chrome on genuinely large tables (8-row
+  // threshold) — small comparison tables stay clean.
+  if (tbody.rows.length < 8) return
+  table.dataset.telaEnhanced = '1'
 
-function attachHoverButtons(
-  wrapper: HTMLElement,
-  ctx: import('@milkdown/ctx').Ctx,
-) {
-  if (wrapper.dataset.telaHoverBtns) return
-  wrapper.dataset.telaHoverBtns = '1'
-  wrapper.classList.add('tela-table-wrapper-enhanced')
-
-  const addCol = document.createElement('button')
-  addCol.type = 'button'
-  addCol.className = 'tela-table-add-col'
-  addCol.setAttribute('aria-label', 'Add column')
-  addCol.textContent = '+'
-  addCol.addEventListener('mousedown', (e) => {
-    e.preventDefault()
-    focusTableWrapper(wrapper, ctx)
-    runCmd(ctx, addColAfterCommand)
+  headCells.forEach((th, i) => {
+    th.classList.add('tela-th-sortable')
+    let dir = 0
+    th.addEventListener('click', () => {
+      dir = dir === 1 ? -1 : 1
+      headCells.forEach((h) => h.removeAttribute('data-sort'))
+      th.dataset.sort = dir === 1 ? 'asc' : 'desc'
+      const rows = Array.from(tbody.rows)
+      rows.sort((ra, rb) => compareCells(cellText(ra, i), cellText(rb, i)) * dir)
+      rows.forEach((r) => tbody.appendChild(r))
+    })
   })
 
-  const addRow = document.createElement('button')
-  addRow.type = 'button'
-  addRow.className = 'tela-table-add-row'
-  addRow.setAttribute('aria-label', 'Add row')
-  addRow.textContent = '+'
-  addRow.addEventListener('mousedown', (e) => {
-    e.preventDefault()
-    focusTableWrapper(wrapper, ctx)
-    runCmd(ctx, addRowAfterCommand)
+  // Filter box (we're already past the ≥8-row gate).
+  const wrap = table.closest('.tableWrapper') ?? table
+  const bar = document.createElement('div')
+  bar.className = 'tela-table-filter'
+  const input = document.createElement('input')
+  input.type = 'text'
+  input.placeholder = 'Filter rows…'
+  input.setAttribute('aria-label', 'Filter table rows')
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase()
+    for (const row of Array.from(tbody.rows)) {
+      const hit = !q || (row.textContent ?? '').toLowerCase().includes(q)
+      row.style.display = hit ? '' : 'none'
+    }
   })
-
-  wrapper.appendChild(addCol)
-  wrapper.appendChild(addRow)
+  bar.appendChild(input)
+  wrap.parentElement?.insertBefore(bar, wrap)
 }
 
-export const tableEnhancePlugin = $prose((ctx) => {
+export const tableEnhancePlugin = $prose(() => {
   return new Plugin({
     key: tableKey,
     props: {
@@ -234,17 +145,17 @@ export const tableEnhancePlugin = $prose((ctx) => {
     },
     view(editorView) {
       const run = () => {
-        if (editorView.editable) {
-          editorView.dom
-            .querySelectorAll('.tableWrapper')
-            .forEach((w) => attachHoverButtons(w as HTMLElement, ctx))
-          return
-        }
-        enhanceReadonlyTablesInRoot(editorView.dom)
+        if (editorView.editable) return
+        // GFM content tables only — exclude block-internal tables like the
+        // calendar month grid (`.tela-calendar-table`), which is a <table> too
+        // but must never get sort/filter chrome. (In the reader, GFM tables are
+        // NOT wrapped in `.tableWrapper`, so we can't filter on that.)
+        editorView.dom
+          .querySelectorAll('table:not(.tela-calendar-table)')
+          .forEach((t) => enhanceReadonlyTable(t as HTMLTableElement))
       }
       run()
       return { update: run }
     },
   })
 })
-export { createTableKeymapPlugin } from './milkdown-table-keymap'
