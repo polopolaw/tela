@@ -1,6 +1,6 @@
 import { findAndReplace } from 'mdast-util-find-and-replace'
-import { pageSlug } from '../slug'
-import { headingHashFromFragment } from '../reader/heading-anchors'
+import { pageSlug } from '../../slug'
+import { headingHashFromFragment } from '../../reader/heading-anchors'
 
 // Pure, Milkdown-free `[[Name]]` / `[[Name|alias]]` parsing. SINGLE SOURCE
 // shared by the Milkdown editor (milkdown-wikilink-bracket.ts wraps this in
