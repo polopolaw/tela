@@ -56,6 +56,8 @@ const RUN: Record<string, (ctx: Ctx) => void> = {
   h1: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 1),
   h2: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 2),
   h3: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 3),
+  h4: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 4),
+  h5: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 5),
   'bullet-list': (ctx) => ctx.get(commandsCtx).call(wrapInBulletListCommand.key),
   'ordered-list': (ctx) => ctx.get(commandsCtx).call(wrapInOrderedListCommand.key),
   'task-list': insertTaskList,

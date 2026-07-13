@@ -21,6 +21,8 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Heading4,
+  Heading5,
   List,
   ListOrdered,
   Plus,
@@ -65,6 +67,18 @@ const TURN_INTO: TurnIntoOption[] = [
     label: 'Heading 3',
     icon: Heading3,
     run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 3),
+  },
+  {
+    id: 'h4',
+    label: 'Heading 4',
+    icon: Heading4,
+    run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 4),
+  },
+  {
+    id: 'h5',
+    label: 'Heading 5',
+    icon: Heading5,
+    run: (ctx) => ctx.get(commandsCtx).call(wrapInHeadingCommand.key, 5),
   },
   {
     id: 'bullet',

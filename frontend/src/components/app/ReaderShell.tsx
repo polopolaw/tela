@@ -12,7 +12,14 @@ import {
   postDateFromSqlite,
 } from '../../lib/relativeTime'
 import { useHeadMeta } from '../../lib/useHeadMeta'
-import { pageSlug } from '../../lib/slug'
+import {
+  handleReaderAnchorClick,
+  scrollToHeading,
+  scrollToLocationHash,
+  stampHeadingAnchors,
+  type TocEntry,
+} from '../../lib/reader/heading-anchors'
+import { parseTelaPageHref } from '../../lib/markdown/transforms/wikilink'
 import {
   getTheme,
   setTheme,
@@ -30,17 +37,6 @@ import { ToggleGroup, ToggleGroupItem } from '../ui/toggle'
 import { SummaryTitle } from './SummaryHint'
 import { WikilinkHoverPreview } from './wikilink-hover-preview'
 import { MarkdownView } from '../view/MarkdownView'
-
-// Inlined (not imported from milkdown-wikilink-decoration.ts) so Rollup doesn't
-// pull the wikilink-decoration module in as a shared dep of the reader chunk —
-// that split was producing a separate ~320 KB chunk. 5-line dupe is cheaper.
-function parseWikilinkPageId(href: string): number | null {
-  const prefix = 'tela://page/'
-  if (!href.startsWith(prefix)) return null
-  const tail = href.slice(prefix.length)
-  if (!/^\d+$/.test(tail)) return null
-  return Number(tail)
-}
 
 // Footnotes. MarkdownView already renders `.reader-footnote-def` (id `fn-<label>`)
 // and `.reader-footnote-ref` (id `fnref-<label>`, linking to its def). Here the
@@ -103,12 +99,6 @@ function readingMinutes(body: string): number {
   return Math.max(1, Math.round(words / WORDS_PER_MIN))
 }
 
-interface TocEntry {
-  id: string
-  text: string
-  level: number
-}
-
 export interface ReaderShellProps {
   /** Page being read — drives the editor key + reading-time/meta. */
   pageId: number
@@ -140,7 +130,7 @@ export interface ReaderShellProps {
    * `tela://page/N` anchor (the scheme is dead to the browser); the caller
    * decides whether/where to navigate (no-op for out-of-scope or broken).
    */
-  onNavigateWikilink: (targetPageId: number) => void
+  onNavigateWikilink: (targetPageId: number, headingHash?: string) => void
   /** Far-left of the top bar — close button (read) or wordmark (share). */
   topbarLeading?: ReactNode
   /** Right of the top bar, before the Display/Print controls — e.g. Sign in. */
@@ -278,49 +268,11 @@ export function ReaderShell({
   const handleContentReady = useCallback((root: HTMLElement | null) => {
     if (!root) return
     requestAnimationFrame(() => {
-      const els = Array.from(
-        root.querySelectorAll('h1, h2, h3'),
-      ) as HTMLElement[]
-      const entries: TocEntry[] = []
-      // Stable, human-readable slug ids (deduped) so a heading deep-link
-      // (`#getting-started`) survives across loads — unlike the old positional
-      // `reader-h-${i}`, which changed the moment a heading was added above.
-      const used = new Map<string, number>()
-      els.forEach((el, i) => {
-        const text = (el.textContent ?? '').trim()
-        if (!text) return
-        const base = pageSlug(text) || `section-${i + 1}`
-        const n = used.get(base) ?? 0
-        used.set(base, n + 1)
-        el.id = n === 0 ? base : `${base}-${n + 1}`
-        el.classList.add('reader-heading')
-        // Hover affordance: a click-to-copy anchor injected once per heading.
-        // The reader dispatches no transactions, so poking PM's static DOM is
-        // safe here (no redraw to clobber it).
-        if (!el.querySelector(':scope > .reader-anchor')) {
-          const a = document.createElement('a')
-          a.className = 'reader-anchor'
-          a.href = `#${el.id}`
-          a.textContent = '#'
-          a.setAttribute('contenteditable', 'false')
-          a.setAttribute('aria-label', 'Copy link to this section')
-          el.prepend(a)
-        } else {
-          const a = el.querySelector(':scope > .reader-anchor') as HTMLElement
-          a.setAttribute('href', `#${el.id}`)
-        }
-        entries.push({ id: el.id, text, level: Number(el.tagName[1]) })
-      })
-      headingsRef.current = els.filter((el) => el.id && el.textContent?.trim())
+      const { entries, headings } = stampHeadingAnchors(root)
+      headingsRef.current = headings
       setToc(entries)
       wireFootnotes(root)
-      // Honour a deep-link hash now that ids exist (the browser couldn't on
-      // load — the article hadn't rendered yet).
-      const hash = decodeURIComponent(window.location.hash.slice(1))
-      if (hash) {
-        const target = document.getElementById(hash)
-        if (target) target.scrollIntoView({ block: 'start' })
-      }
+      scrollToLocationHash()
       // PDF export readiness signal (gotenberg waits on this). Wait for fonts,
       // then for any charts to finish painting (ECharts lazy-loads ~1MB + renders
       // async, so a fixed delay isn't enough), then a short settle so async
@@ -399,17 +351,7 @@ export function ReaderShell({
   }, [toc])
 
   const jumpTo = useCallback((id: string, flash = false) => {
-    const el = document.getElementById(id)
-    if (!el) return
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    el.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
-    if (flash) {
-      el.classList.remove('reader-fn-flash')
-      // Reflow so re-adding the class restarts the highlight animation.
-      void el.offsetWidth
-      el.classList.add('reader-fn-flash')
-      window.setTimeout(() => el.classList.remove('reader-fn-flash'), 1400)
-    }
+    scrollToHeading(id, { flash })
   }, [])
 
   // Wikilink navigation — keep clicks inside the reader. Capture phase so we run
@@ -447,24 +389,27 @@ export function ReaderShell({
       if (anchor.classList.contains('reader-anchor')) {
         e.preventDefault()
         e.stopPropagation()
-        const hash = anchor.getAttribute('href') ?? ''
-        const url = `${window.location.origin}${window.location.pathname}${window.location.search}${hash}`
-        void navigator.clipboard?.writeText(url).catch(() => {})
-        window.history.replaceState(null, '', url)
-        jumpTo(hash.slice(1))
-        anchor.dataset.copied = 'true'
-        window.setTimeout(() => delete anchor.dataset.copied, 1100)
+        handleReaderAnchorClick(anchor, jumpTo)
         return
       }
-      const id = parseWikilinkPageId(anchor.getAttribute('href') ?? '')
-      if (id == null) return
+      const parsed = parseTelaPageHref(anchor.getAttribute('href') ?? '')
+      if (parsed == null) return
       e.preventDefault()
       e.stopPropagation()
-      onNavigateWikilink(id)
+      if (parsed.hash && parsed.pageId === pageId) {
+        jumpTo(parsed.hash)
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${window.location.search}#${parsed.hash}`,
+        )
+        return
+      }
+      onNavigateWikilink(parsed.pageId, parsed.hash)
     }
     el.addEventListener('click', onClick, true)
     return () => el.removeEventListener('click', onClick, true)
-  }, [onNavigateWikilink, jumpTo])
+  }, [onNavigateWikilink, jumpTo, pageId])
 
   return (
     <div

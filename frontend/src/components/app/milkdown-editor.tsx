@@ -392,11 +392,11 @@ function MilkdownEditorInner({
   // bail silently so the user can plain-click to invoke the new-page dialog
   // through the existing broken-wikilink path.
   const queryClient = useQueryClient()
-  const wikilinkNavigate: WikilinkNavigateHandler = (pageId) => {
+  const wikilinkNavigate: WikilinkNavigateHandler = (pageId, headingHash) => {
     const pages = queryClient.getQueryData<PageListItem[]>(pageKeys.allFlat())
     const page = pages?.find((p) => p.id === pageId)
     if (!page) return
-    navigateToPage(page.space_id, pageId)
+    navigateToPage(page.space_id, pageId, headingHash)
   }
 
   // M8.3 — single-source the selection projection so the PM plugin and any

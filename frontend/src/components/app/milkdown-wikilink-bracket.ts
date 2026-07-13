@@ -5,6 +5,7 @@ import type { Node as ProseNode } from '@milkdown/kit/prose/model'
 import {
   wikilinkRemark,
   wikilinkSlug,
+  wikilinkHrefHash,
 } from '../../lib/markdown/transforms/wikilink'
 export { buildWikilinkResolveIndex } from '../../lib/slug'
 
@@ -147,10 +148,13 @@ function buildResolveDecorations(
     const slug = wikilinkSlug(node.attrs.target as string)
     const id = slug ? index.get(slug) : undefined
     if (id != null) {
+      const hash = wikilinkHrefHash(node.attrs.target as string)
       // Inject the canonical href — existing modifier-click + reader click
       // handlers take it from here.
       decos.push(
-        Decoration.node(pos, pos + node.nodeSize, { href: `tela://page/${id}` }),
+        Decoration.node(pos, pos + node.nodeSize, {
+          href: `tela://page/${id}${hash}`,
+        }),
       )
     } else {
       // Out-of-scope share links render as plain text (no leak); everywhere

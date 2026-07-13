@@ -83,7 +83,7 @@ const PLUGIN_BLOCKS = {
 // but silently broken in the view. Promoting a block from degrades → rendered
 // means writing its renderer in MarkdownView, then moving its id here.
 const VIEW_RENDERED = new Set([
-  'h1', 'h2', 'h3',
+  'h1', 'h2', 'h3', 'h4', 'h5',
   'bullet-list', 'ordered-list', 'task-list',
   'quote', 'callout', 'highlight',
   'code', 'table', 'divider', 'footnote', 'date', 'emoji', 'image',

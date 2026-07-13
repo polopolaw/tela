@@ -88,13 +88,14 @@ function ReadModeView({ spaceId, pageId, title, summary, body, updatedAt }: Read
   )
 
   const onNavigateWikilink = useCallback(
-    (targetPageId: number) => {
+    (targetPageId: number, headingHash?: string) => {
       const sp = spaceByPageId.get(targetPageId)
       if (sp == null) return
       void navigate({
         to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
         params: { spaceId: sp, pageId: targetPageId, slug: undefined },
         search: { view: 'read' },
+        hash: headingHash,
       })
     },
     [navigate, spaceByPageId],

@@ -97,11 +97,12 @@ export function PublicReaderView({
   )
 
   const onNavigateWikilink = useCallback(
-    (targetPageId: number) => {
+    (targetPageId: number, headingHash?: string) => {
       if (!inScopePageIds.has(targetPageId)) return
       void navigate({
         to: '/public/spaces/$spaceId/pages/$pageId/{-$slug}',
         params: { spaceId: space.id, pageId: targetPageId, slug: undefined },
+        hash: headingHash,
       })
     },
     [navigate, space.id, inScopePageIds],

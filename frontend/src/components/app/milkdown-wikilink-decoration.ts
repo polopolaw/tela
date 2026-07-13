@@ -69,7 +69,9 @@ export const wikilinkDecorationPlugin = $prose((ctx) => {
 function parseWikilinkPageId(href: string): number | null {
   const prefix = 'tela://page/'
   if (!href.startsWith(prefix)) return null
-  const tail = href.slice(prefix.length)
+  const rest = href.slice(prefix.length)
+  const hashIdx = rest.indexOf('#')
+  const tail = hashIdx >= 0 ? rest.slice(0, hashIdx) : rest
   if (!/^\d+$/.test(tail)) return null
   return Number(tail)
 }

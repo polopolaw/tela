@@ -38,10 +38,11 @@ function composeBreadcrumb(
   return spaceName || parents || undefined
 }
 
-export function navigateToPage(spaceId: number, pageId: number) {
+export function navigateToPage(spaceId: number, pageId: number, hash?: string) {
   void router.navigate({
     to: '/spaces/$spaceId/pages/$pageId/{-$slug}',
     params: { spaceId, pageId, slug: undefined },
+    hash,
   })
 }
 

@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
+import { expect, waitFor } from 'storybook/test'
+import { stampHeadingAnchors } from '../../lib/reader/heading-anchors'
 import { MarkdownView } from './MarkdownView'
 
 // Rendered inside a `.tela-reader` scope (+ a centered article column) so the
@@ -210,4 +212,31 @@ view = edit
 // (mounted from the shared lib/blocks/calendar-grid builder).
 export const BoardsAndData: Story = {
   args: { body: BOARDS },
+}
+
+const HEADING_LEVELS = `# Top level
+
+## Section
+
+### Subsection
+
+#### Detail
+
+##### Fine print
+
+Body under the headings.
+`
+
+export const HeadingLevelsAndAnchors: Story = {
+  args: {
+    body: HEADING_LEVELS,
+    onReady: (root) => stampHeadingAnchors(root),
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => {
+      const h5 = canvasElement.querySelector('h5#fine-print')
+      expect(h5).not.toBeNull()
+      expect(h5?.querySelector('.reader-anchor')).not.toBeNull()
+    })
+  },
 }

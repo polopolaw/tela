@@ -233,8 +233,15 @@ const CORE_CASES: RoundTripCase[] = [
   },
   {
     id: 'headings',
-    md: '# Title\n\n## Section\n\n### Subsection\n\nBody paragraph.',
-    contains: ['# Title', '## Section', '### Subsection', 'Body paragraph.'],
+    md: '# Title\n\n## Section\n\n### Subsection\n\n#### Detail\n\n##### Note\n\nBody paragraph.',
+    contains: [
+      '# Title',
+      '## Section',
+      '### Subsection',
+      '#### Detail',
+      '##### Note',
+      'Body paragraph.',
+    ],
   },
   {
     id: 'code-block',
@@ -605,6 +612,9 @@ export const CollabEditingFlow: Story = {
 const SHORTCUTS: { id: string; type: string; sel: string; text: string }[] = [
   { id: 'h1', type: '# ', sel: 'h1', text: 'Heading one' },
   { id: 'h2', type: '## ', sel: 'h2', text: 'Heading two' },
+  { id: 'h3', type: '### ', sel: 'h3', text: 'Heading three' },
+  { id: 'h4', type: '#### ', sel: 'h4', text: 'Heading four' },
+  { id: 'h5', type: '##### ', sel: 'h5', text: 'Heading five' },
   { id: 'bullet', type: '- ', sel: 'ul li', text: 'a bullet' },
   { id: 'ordered', type: '1. ', sel: 'ol li', text: 'first' },
   { id: 'quote', type: '> ', sel: 'blockquote', text: 'a quote' },

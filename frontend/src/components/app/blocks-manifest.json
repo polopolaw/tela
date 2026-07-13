@@ -32,6 +32,26 @@
       "syntax": "### Heading"
     },
     {
+      "id": "h4",
+      "label": "Heading 4",
+      "hint": "Minor section heading",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["h4", "heading 4", "heading"],
+      "syntax": "#### Heading"
+    },
+    {
+      "id": "h5",
+      "label": "Heading 5",
+      "hint": "Smallest section heading",
+      "category": "Text",
+      "slash": true,
+      "agent": false,
+      "keywords": ["h5", "heading 5", "heading"],
+      "syntax": "##### Heading"
+    },
+    {
       "id": "bullet-list",
       "label": "Bulleted list",
       "hint": "Unordered list",

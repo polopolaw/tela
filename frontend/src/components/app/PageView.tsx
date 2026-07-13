@@ -33,6 +33,13 @@ import { ApiError } from '../../lib/api'
 import { pushRecentPage } from '../../lib/recentPages'
 import { recordPageView } from '../../lib/recordPageView'
 import { buildWikilinkResolveIndex, pageSlug } from '../../lib/slug'
+import { parseAppPageHref } from '../../lib/markdown/transforms/wikilink'
+import {
+  handleReaderAnchorClick,
+  scrollToHeading,
+  scrollToLocationHash,
+  stampHeadingAnchors,
+} from '../../lib/reader/heading-anchors'
 import type { TelaProvider } from '../../lib/collab/tela-provider'
 import { captureAnchor, type CommentAnchor } from '../../lib/comments/anchor'
 import { scrollAndFlashPanelThread } from '../../lib/comments/coordination'
@@ -417,21 +424,62 @@ function PageViewer({
     })
   }, [navigate, spaceId, page.id, page.title, scrollRef])
 
+  const handleContentReady = useCallback((root: HTMLElement | null) => {
+    if (!root) return
+    requestAnimationFrame(() => {
+      stampHeadingAnchors(root)
+      scrollToLocationHash()
+    })
+  }, [])
+
+  const jumpToHeading = useCallback((id: string) => {
+    scrollToHeading(id)
+  }, [])
+
+  useEffect(() => {
+    const onHashChange = () => scrollToLocationHash()
+    window.addEventListener('hashchange', onHashChange)
+    return () => window.removeEventListener('hashchange', onHashChange)
+  }, [])
+
   // SPA-navigate internal wikilink clicks (MarkdownView emits plain <a href>);
   // without this they'd full-reload. External / non-page links fall through.
   const onContentClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.button !== 0) return
-      const a = (e.target as HTMLElement).closest(
-        'a.tela-wikilink[href]',
-      ) as HTMLAnchorElement | null
-      if (!a) return
-      const href = a.getAttribute('href') ?? ''
+      const anchor = (e.target as HTMLElement).closest('a')
+      if (!anchor) return
+      if (anchor.classList.contains('reader-anchor')) {
+        e.preventDefault()
+        handleReaderAnchorClick(anchor, jumpToHeading)
+        return
+      }
+      if (!anchor.classList.contains('tela-wikilink')) return
+      const href = anchor.getAttribute('href') ?? ''
       if (!href.startsWith('/spaces/')) return
       e.preventDefault()
-      void navigate({ to: href })
+      const parsed = parseAppPageHref(href)
+      if (!parsed) return
+      if (parsed.hash && parsed.pageId === page.id) {
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${window.location.search}#${parsed.hash}`,
+        )
+        jumpToHeading(parsed.hash)
+        return
+      }
+      try {
+        const u = new URL(href, window.location.origin)
+        void navigate({
+          to: u.pathname,
+          hash: parsed.hash,
+        })
+      } catch {
+        void navigate({ to: href })
+      }
     },
-    [navigate],
+    [navigate, page.id, jumpToHeading],
   )
 
   const summary = pageSummary(page.props)
@@ -624,6 +672,7 @@ function PageViewer({
               setGraphOpen(false)
               setCommentsOpen(true)
             }}
+            onReady={handleContentReady}
             className={EDITOR_MIN_H}
           />
         )}

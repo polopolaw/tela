@@ -57,13 +57,14 @@ export function ShareReaderView({
   )
 
   const onNavigateWikilink = useCallback(
-    (targetPageId: number) => {
+    (targetPageId: number, headingHash?: string) => {
       // In-scope links route within share-mode; out-of-scope ones are painted
       // as plain text by the decoration plugin and stay non-navigable here.
       if (!inScopePageIds.has(targetPageId)) return
       void navigate({
         to: '/share/$token/p/$pageId',
         params: { token, pageId: targetPageId },
+        hash: headingHash,
       })
     },
     [navigate, token, inScopePageIds],

@@ -35,7 +35,7 @@ import { Plugin } from '@milkdown/kit/prose/state'
 //   itself bails (no space_id resolvable). No-op; user can plain-click the
 //   broken wikilink to invoke the existing new-page dialog.
 
-export type WikilinkNavigateHandler = (pageId: number) => void
+export type WikilinkNavigateHandler = (pageId: number, headingHash?: string) => void
 
 export const wikilinkNavigateCtx = $ctx<
   WikilinkNavigateHandler | null,
@@ -52,14 +52,7 @@ export const modifierClickEnabledCtx = $ctx<boolean, 'modifierClickEnabled'>(
   'modifierClickEnabled',
 )
 
-const TELA_PAGE_HREF_PREFIX = 'tela://page/'
-
-function parseTelaPageId(href: string): number | null {
-  if (!href.startsWith(TELA_PAGE_HREF_PREFIX)) return null
-  const tail = href.slice(TELA_PAGE_HREF_PREFIX.length)
-  if (!/^\d+$/.test(tail)) return null
-  return Number(tail)
-}
+import { parseTelaPageHref } from '../../lib/markdown/transforms/wikilink'
 
 // Returns the host <details class="tela-details"> for a clicked summary, or
 // null if the summary isn't inside our managed disclosure widget (e.g. a
@@ -86,11 +79,11 @@ export const modifierClickPlugin = $prose((ctx) => {
             const href = anchor.getAttribute('href') ?? ''
             if (href.length === 0 || href === '#') return false
 
-            const telaPageId = parseTelaPageId(href)
-            if (telaPageId != null) {
+            const parsed = parseTelaPageHref(href)
+            if (parsed != null) {
               const navigate = ctx.get(wikilinkNavigateCtx.key)
               if (!navigate) return false
-              navigate(telaPageId)
+              navigate(parsed.pageId, parsed.hash)
               event.preventDefault()
               return true
             }

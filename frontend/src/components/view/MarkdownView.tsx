@@ -25,7 +25,7 @@ import {
   CALENDAR_EVENT_RE,
 } from '../../lib/blocks/calendar-grid'
 import { accentForValue, statLineClass } from '../../lib/blocks/stat-trend'
-import { wikilinkSlug } from '../../lib/markdown/transforms/wikilink'
+import { wikilinkSlug, wikilinkHrefHash } from '../../lib/markdown/transforms/wikilink'
 import { isSafeUrl } from '../../lib/markdown/remark-safe-links'
 import { embedIframeSrc } from '../../lib/markdown/embed'
 import { isPdf, PdfPreviewDialog } from '../ui/pdf-viewer'
@@ -216,7 +216,11 @@ function WikilinkView({ target, alias }: { target: string; alias: string | null 
     const id = resolveWikilink(slug)
     if (id != null) {
       return (
-        <a className="tela-wikilink" href={pageHref(id)} data-wikilink-slug={slug}>
+        <a
+          className="tela-wikilink"
+          href={`${pageHref(id)}${wikilinkHrefHash(target)}`}
+          data-wikilink-slug={slug}
+        >
           {label}
         </a>
       )

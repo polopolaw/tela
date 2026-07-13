@@ -305,7 +305,8 @@
   .tela-reader .tela-milkdown .ProseMirror h1,
   .tela-reader .tela-milkdown .ProseMirror h2,
   .tela-reader .tela-milkdown .ProseMirror h3,
-  .tela-reader .tela-milkdown .ProseMirror h4 {
+  .tela-reader .tela-milkdown .ProseMirror h4,
+  .tela-reader .tela-milkdown .ProseMirror h5 {
     font-family: var(--reading-font-family);
     line-height: var(--reading-leading-tight);
     letter-spacing: -0.01em;
@@ -328,6 +329,11 @@
     font-size: 1.05em;
     margin: 1.3em 0 0.4em;
   }
+  .tela-reader .tela-milkdown .ProseMirror h5 {
+    font-size: 1em;
+    margin: 1.2em 0 0.35em;
+    color: var(--text-muted);
+  }
   .tela-reader .tela-milkdown .ProseMirror li {
     line-height: var(--reading-leading);
     margin: 0.3em 0;
@@ -346,6 +352,7 @@
     line-height: var(--reading-leading-tight);
   }
   /* Heading scroll target — clear the sticky top bar when jumped to from TOC. */
+  .tela-milkdown .reader-heading,
   .tela-reader .reader-heading {
     scroll-margin-top: calc(var(--space-8) + var(--space-4));
     position: relative;
@@ -353,7 +360,9 @@
 
   /* Hover copy-link affordance. Lives in the left gutter so it never reflows the
      heading text; revealed on heading hover / keyboard focus. Clicking copies an
-     absolute deep-link (handled in ReaderShell) and flips to a "copied" tick. */
+     absolute deep-link (handled in ReaderShell / PageViewer) and flips to a
+     "copied" tick. */
+  .tela-milkdown .reader-anchor,
   .tela-reader .reader-anchor {
     position: absolute;
     left: -1.05em;
@@ -370,18 +379,23 @@
     transition: opacity var(--duration-fast) var(--ease-out);
     user-select: none;
   }
+  .tela-milkdown .reader-heading:hover .reader-anchor,
   .tela-reader .reader-heading:hover .reader-anchor,
+  .tela-milkdown .reader-anchor:focus-visible,
   .tela-reader .reader-anchor:focus-visible {
     opacity: 0.55;
   }
+  .tela-milkdown .reader-anchor:hover,
   .tela-reader .reader-anchor:hover {
     opacity: 1 !important;
     color: var(--accent);
   }
+  .tela-milkdown .reader-anchor[data-copied],
   .tela-reader .reader-anchor[data-copied] {
     opacity: 1 !important;
     color: var(--success);
   }
+  .tela-milkdown .reader-anchor[data-copied]::after,
   .tela-reader .reader-anchor[data-copied]::after {
     content: 'Copied';
     position: absolute;
@@ -401,12 +415,14 @@
   }
   /* The anchor is a reading aid, not content — never print it. */
   @media print {
+    .tela-milkdown .reader-anchor,
     .tela-reader .reader-anchor {
       display: none !important;
     }
   }
   @media (hover: none) {
     /* Touch: no hover, so keep it faintly visible rather than unreachable. */
+    .tela-milkdown .reader-anchor,
     .tela-reader .reader-anchor {
       opacity: 0.4;
     }
@@ -429,7 +445,8 @@
   .tela-reader .tela-milkdown .ProseMirror h1,
   .tela-reader .tela-milkdown .ProseMirror h2,
   .tela-reader .tela-milkdown .ProseMirror h3,
-  .tela-reader .tela-milkdown .ProseMirror h4 {
+  .tela-reader .tela-milkdown .ProseMirror h4,
+  .tela-reader .tela-milkdown .ProseMirror h5 {
     /* Even line lengths so a heading never drops one lonely word. */
     text-wrap: balance;
   }
@@ -440,7 +457,7 @@
   }
   /* The first block after a heading hugs it — no double gap between the
      heading's bottom margin and the block's top margin. */
-  .tela-reader .tela-milkdown .ProseMirror :is(h1, h2, h3, h4) + * {
+  .tela-reader .tela-milkdown .ProseMirror :is(h1, h2, h3, h4, h5) + * {
     margin-top: 0;
   }
   /* Links read calmer in long-form: a thin, low-contrast underline that firms
@@ -813,7 +830,8 @@
     .reader-article h1,
     .reader-article h2,
     .reader-article h3,
-    .reader-article h4 {
+    .reader-article h4,
+    .reader-article h5 {
       break-after: avoid;
     }
     .tela-reader .tela-milkdown .ProseMirror pre,
