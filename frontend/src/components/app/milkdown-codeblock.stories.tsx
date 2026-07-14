@@ -1,24 +1,26 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import type { ReactNode } from 'react'
+import { highlightCodeChildren } from '../../lib/code-highlight'
 
 // Showcase the code-block chrome (language label + copy button). The editor
 // renders the same class structure via the milkdown-codeblock.ts nodeView; here
 // we render the static DOM inside a `.tela-milkdown .ProseMirror` wrapper so the
-// scoped CSS applies without a Milkdown mount. Prism token classes are added by
-// hand to preview the syntax palette.
+// scoped CSS applies without a Milkdown mount.
 
 interface CodeBlockPreviewProps {
   language: string
   children: ReactNode
+  resolvedLanguage?: string
 }
 
-function CodeBlockPreview({ language, children }: CodeBlockPreviewProps) {
+function CodeBlockPreview({ language, children, resolvedLanguage }: CodeBlockPreviewProps) {
+  const label = resolvedLanguage ?? (language || 'text')
   return (
     <div className="tela-milkdown">
       <div className="ProseMirror">
         <div className="tela-codeblock" data-language={language}>
           <div className="tela-codeblock-header" contentEditable={false}>
-            <span className="tela-codeblock-lang">{language || 'text'}</span>
+            <span className="tela-codeblock-lang">{label}</span>
             <button type="button" className="tela-codeblock-copy">
               Copy
             </button>
@@ -41,33 +43,30 @@ export default meta
 
 type Story = StoryObj<typeof CodeBlockPreview>
 
+const tsSample = `export function greet(name: string) {
+  return \`Hello, \${name}\`
+}`
+
 export const TypeScript: Story = {
-  render: () => (
-    <CodeBlockPreview language="typescript">
-      <span className="token keyword">export</span>{' '}
-      <span className="token keyword">function</span>{' '}
-      <span className="token function">greet</span>
-      <span className="token punctuation">(</span>name
-      <span className="token punctuation">:</span>{' '}
-      <span className="token keyword">string</span>
-      <span className="token punctuation">)</span>{' '}
-      <span className="token punctuation">{'{'}</span>
-      {'\n  '}
-      <span className="token keyword">return</span>{' '}
-      <span className="token string">{'`Hello, ${name}`'}</span>
-      {'\n'}
-      <span className="token punctuation">{'}'}</span>
-    </CodeBlockPreview>
-  ),
+  render: () => {
+    const { children } = highlightCodeChildren(tsSample, 'typescript')
+    return (
+      <CodeBlockPreview language="typescript">{children}</CodeBlockPreview>
+    )
+  },
 }
 
 export const NoLanguage: Story = {
-  name: 'No language (text)',
-  render: () => (
-    <CodeBlockPreview language="">
-      $ tela deploy --prod{'\n'}✓ built in 1.7s
-    </CodeBlockPreview>
-  ),
+  name: 'Autodetect (bash)',
+  render: () => {
+    const sample = '$ tela deploy --prod\n✓ built in 1.7s'
+    const { lang, children } = highlightCodeChildren(sample, null)
+    return (
+      <CodeBlockPreview language="" resolvedLanguage={lang ?? 'text'}>
+        {children}
+      </CodeBlockPreview>
+    )
+  },
 }
 
 export const Copied: Story = {

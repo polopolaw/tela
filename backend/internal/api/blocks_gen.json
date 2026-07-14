@@ -477,7 +477,7 @@
       ],
       "syntax": "```ts\nconst x = 1\n```",
       "when": "Syntax-highlighted code with a copy button.",
-      "note": "Put the language right after the opening fence."
+      "note": "Put the language right after the opening fence (e.g. ts, py, go), pick it from the header dropdown in the editor, or omit it for best-effort autodetect."
     },
     {
       "id": "equation",

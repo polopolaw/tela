@@ -10,9 +10,8 @@ import {
   type ReactNode,
 } from 'react'
 import katex from 'katex'
-import { refractor } from 'refractor/core'
 import { parsePageMarkdown } from '../../lib/markdown/remark-stack'
-import { configureRefractor } from '../../lib/milkdown/refractor-config'
+import { highlightCodeChildren } from '../../lib/code-highlight'
 import {
   CALLOUT_LABELS,
   type CalloutType,
@@ -89,57 +88,34 @@ interface MdNode {
   [k: string]: unknown
 }
 
-let refractorReady = false
-function ensureRefractor() {
-  if (!refractorReady) {
-    configureRefractor(refractor)
-    refractorReady = true
-  }
-}
-
-interface HastNode {
-  type: string
-  tagName?: string
-  value?: string
-  properties?: Record<string, unknown>
-  children?: HastNode[]
-}
-
-function renderHast(node: HastNode, key: number): ReactNode {
-  if (node.type === 'text') return node.value
-  if (node.type === 'element' && node.tagName) {
-    const cls = node.properties?.className
-    const className = Array.isArray(cls)
-      ? cls.join(' ')
-      : typeof cls === 'string'
-        ? cls
-        : undefined
-    return createElement(
-      node.tagName,
-      { key, className },
-      node.children?.map((c, i) => renderHast(c, i)),
-    )
-  }
-  return null
-}
-
 function CodeBlock({ lang, value }: { lang: string | null; value: string }) {
-  ensureRefractor()
-  let tree: HastNode | null = null
-  if (lang && refractor.registered(lang)) {
-    try {
-      tree = refractor.highlight(value, lang) as unknown as HastNode
-    } catch {
-      tree = null
-    }
+  const { lang: resolved, children } = highlightCodeChildren(value, lang)
+  const [copied, setCopied] = useState(false)
+  const label = resolved ?? lang?.trim() ?? 'text'
+  const copy = () => {
+    void navigator.clipboard?.writeText(value).then(() => {
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1100)
+    })
   }
-  const langClass = lang ? `language-${lang}` : undefined
   return (
-    <pre className={langClass}>
-      <code className={langClass}>
-        {tree ? tree.children?.map((c, i) => renderHast(c, i)) : value}
-      </code>
-    </pre>
+    <div className="tela-codeblock" data-language={resolved ?? lang ?? ''}>
+      <div className="tela-codeblock-header">
+        <span className="tela-codeblock-lang">{label}</span>
+        <button
+          type="button"
+          className="tela-codeblock-copy"
+          aria-label="Copy code"
+          data-copied={copied ? 'true' : undefined}
+          onClick={copy}
+        >
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre data-language={resolved ?? lang ?? ''}>
+        <code className={resolved ? `language-${resolved}` : undefined}>{children}</code>
+      </pre>
+    </div>
   )
 }
 

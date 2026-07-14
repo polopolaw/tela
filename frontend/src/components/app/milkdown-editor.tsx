@@ -33,7 +33,7 @@ import {
   ProsemirrorAdapterProvider,
   usePluginViewFactory,
 } from '@prosemirror-adapter/react'
-import { prism, prismConfig } from '@milkdown/plugin-prism'
+import { telaPrism, telaPrismConfig } from '../../lib/milkdown/tela-prism'
 import { Plugin, Selection } from '@milkdown/kit/prose/state'
 import { keymap } from '@milkdown/kit/prose/keymap'
 import type { EditorView } from '@milkdown/kit/prose/view'
@@ -603,7 +603,7 @@ function MilkdownEditorInner({
         // shared refractor/core singleton. The plugin's static import of
         // `refractor` is aliased to `refractor/core` in vite.config.ts so the
         // plugin's `apply` path uses this same registered singleton.
-        ctx.set(prismConfig.key, { configureRefractor })
+        ctx.set(telaPrismConfig.key, { configureRefractor })
 
         // M7.2: wire the editable toggle. Function form is re-evaluated by
         // PM on every updateState; banner-driven readonly + ws-disconnect
@@ -859,9 +859,9 @@ function MilkdownEditorInner({
       .use(collabPageId != null ? [] : history)
       .use(clipboard)
       .use(listener)
-      .use(prism)
-      // Code-block chrome (language label + copy button) via a code_block
-      // nodeView. After prism so its inline token decorations land on our
+      .use(telaPrism)
+      // Code-block chrome (language picker + copy button) via a code_block
+      // nodeView. After tela-prism so its inline token decorations land on our
       // contentDOM <code>. See milkdown-codeblock.ts.
       .use(codeBlockNodeView)
       .use(slashPlugin)
