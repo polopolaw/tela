@@ -281,6 +281,18 @@
       "note": "Authored visually in the editor — not meant to be hand-written by agents."
     },
     {
+      "id": "drawio",
+      "label": "Draw.io",
+      "hint": "Professional diagram",
+      "category": "Media & diagrams",
+      "slash": true,
+      "agent": false,
+      "keywords": ["drawio", "draw.io", "diagrams.net", "diagram", "flowchart", "uml", "architecture"],
+      "syntax": "```drawio\n{ \"scene_hash\": \"…\", \"xml\": \"<mxfile>…</mxfile>\" }\n```",
+      "when": "Professional diagram (flowchart, architecture, UML) via the full draw.io editor. Supports import from diagrams.net or Google Drive links.",
+      "note": "Authored visually in the editor — not meant to be hand-written by agents."
+    },
+    {
       "id": "image",
       "label": "Image",
       "hint": "Embedded image",

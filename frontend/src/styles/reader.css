@@ -841,7 +841,8 @@
     .tela-reader .tela-milkdown .ProseMirror blockquote,
     .tela-reader .tela-milkdown .ProseMirror img,
     .tela-reader .tela-callout,
-    .tela-reader .tela-excalidraw {
+    .tela-reader .tela-excalidraw,
+    .tela-reader .tela-drawio {
       break-inside: avoid;
     }
     .tela-reader .tela-milkdown .ProseMirror p {

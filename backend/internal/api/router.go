@@ -252,6 +252,8 @@ func registerRoutes(srv *Server, mux *http.ServeMux) {
 	// URL unfurl for paste-as-titled-link. Session-authed (makes an outbound
 	// SSRF-guarded request); never public.
 	mux.HandleFunc("POST /api/render/plantuml", srv.RenderPlantuml)
+	// Draw.io import: session-authed remote fetch for editor URL import (SSRF-guarded).
+	mux.HandleFunc("POST /api/drawio/import", srv.ImportDrawioDiagram)
 
 	// M15.0 PublicShare management: session-authed, editor+ on source page's
 	// space. Soft-delete via revoked_at so the audit trail survives revocation.

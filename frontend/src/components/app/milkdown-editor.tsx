@@ -153,6 +153,15 @@ import {
   type ExcalidrawOpenRequest,
 } from './milkdown-excalidraw'
 import {
+  drawioClickPlugin,
+  drawioInsertOpenCtx,
+  drawioOpenCtx,
+  drawioRemarkPlugin,
+  drawioSchema,
+  type DrawioOpenHandler,
+  type DrawioOpenRequest,
+} from './milkdown-drawio'
+import {
   EXCALIDRAW_PRESENCE_META,
   excalidrawPresenceCtx,
   excalidrawPresencePlugin,
@@ -190,6 +199,12 @@ const PlantumlEditSheet = lazy(() =>
     default: m.PlantumlEditSheet,
   })),
 )
+const DrawioEditSheet = lazy(() =>
+  import('./drawio-edit-sheet').then((m) => ({
+    default: m.DrawioEditSheet,
+  })),
+)
+import { DrawioInsertDialog } from './drawio-insert-dialog'
 import {
   WIKILINK_ALIVE_IDS_META,
   wikilinkAliveIdsCtx,
@@ -367,6 +382,8 @@ function MilkdownEditorInner({
     useState<ExcalidrawOpenRequest | null>(null)
   const [plantumlSheet, setPlantumlSheet] =
     useState<PlantumlOpenRequest | null>(null)
+  const [drawioSheet, setDrawioSheet] = useState<DrawioOpenRequest | null>(null)
+  const [drawioInsertOpen, setDrawioInsertOpen] = useState(false)
   // SPIKE — live multiplayer Excalidraw session for the open diagram. State is
   // declared here with the other sheet state; the effect that builds it lives
   // below the collab provider setup (it reads the collab session).
@@ -571,6 +588,15 @@ function MilkdownEditorInner({
             ? null
             : (req) => setPlantumlSheet(req)
         ctx.set(plantumlOpenCtx.key, plantumlTrampoline)
+        const drawioTrampoline: DrawioOpenHandler | null =
+          wikilinkMode === 'share' || readOnly
+            ? null
+            : (req) => setDrawioSheet(req)
+        ctx.set(drawioOpenCtx.key, drawioTrampoline)
+        ctx.set(
+          drawioInsertOpenCtx.key,
+          wikilinkMode === 'share' || readOnly ? null : () => setDrawioInsertOpen(true),
+        )
         // Emoji picker open-handler — same gating as the excalidraw sheet:
         // off in share / read-only, where the slash menu (and thus the
         // "Emoji" item) isn't mounted anyway. `setEmojiPicker` is
@@ -935,6 +961,11 @@ function MilkdownEditorInner({
       .use(excalidrawClickPlugin)
       .use(excalidrawPresenceCtx)
       .use(excalidrawPresencePlugin)
+      .use(drawioOpenCtx)
+      .use(drawioInsertOpenCtx)
+      .use(drawioRemarkPlugin)
+      .use(drawioSchema)
+      .use(drawioClickPlugin)
       // M13.5 (#116) — ctrl/cmd-click to follow wikilinks + external links
       // and to toggle force-open collapsibles. Mounted unconditionally; the
       // handler short-circuits on the modifierClickEnabled flag (off in
@@ -1296,6 +1327,35 @@ function MilkdownEditorInner({
           />
         </Suspense>
       ) : null}
+      {drawioSheet ? (
+        <Suspense fallback={null}>
+          <DrawioEditSheet
+            open
+            onOpenChange={(next) => {
+              if (!next) setDrawioSheet(null)
+            }}
+            pageId={pageId}
+            initialXml={drawioSheet.initialXml}
+            initialAltText={drawioSheet.altText}
+            initialDiagramId={drawioSheet.diagramId}
+            onSave={(next) => {
+              drawioSheet.onSave(next)
+              const editor = get()
+              editor?.action((ctx) => {
+                const view = ctx.get(editorViewCtx)
+                callbacks.current.onChange(
+                  stampMacroDefIdsInMarkdown(ctx.get(serializerCtx)(view.state.doc)),
+                )
+              })
+            }}
+          />
+        </Suspense>
+      ) : null}
+      <DrawioInsertDialog
+        open={drawioInsertOpen}
+        onOpenChange={setDrawioInsertOpen}
+        runWithCtx={(fn) => get()?.action(fn)}
+      />
       {emojiPicker ? (
         <EmojiPicker
           anchor={emojiPicker.anchor}

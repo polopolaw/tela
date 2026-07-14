@@ -16,6 +16,7 @@ import { insertTableCommand } from '@milkdown/kit/preset/gfm'
 import { COLLAPSIBLE_DEFAULT_SUMMARY } from './milkdown-collapsibles'
 import { insertCallout } from './milkdown-callouts'
 import { insertExcalidraw } from './milkdown-excalidraw'
+import { insertDrawio } from './milkdown-drawio'
 import { insertTaskList } from './milkdown-task-list'
 import { insertMathBlock } from './milkdown-math'
 import { TEMPLATES, insertTemplate } from './milkdown-templates'
@@ -66,6 +67,7 @@ const RUN: Record<string, (ctx: Ctx) => void> = {
   callout: insertCallout,
   collapsible: insertCollapsible,
   excalidraw: insertExcalidraw,
+  drawio: insertDrawio,
   code: (ctx) => ctx.get(commandsCtx).call(createCodeBlockCommand.key),
   divider: (ctx) => ctx.get(commandsCtx).call(insertHrCommand.key),
   table: (ctx) =>

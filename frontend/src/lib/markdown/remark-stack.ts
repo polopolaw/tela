@@ -8,6 +8,7 @@ import { calloutsRemark } from './transforms/callouts'
 import { collapsiblesRemark } from './transforms/collapsibles'
 import { highlightRemark } from './transforms/highlight'
 import { excalidrawRemark } from './transforms/excalidraw'
+import { drawioRemark } from './transforms/drawio'
 import { wikilinkRemark } from './transforms/wikilink'
 import { normalizeMacroDirectivesInMarkdown } from './normalize-macro-directives'
 
@@ -34,7 +35,8 @@ function getProcessor() {
       .use(collapsiblesRemark)
       .use(highlightRemark as never)
       .use(wikilinkRemark as never)
-      .use(excalidrawRemark) as unknown as Processor<Root, Root, Root, Root, string>
+      .use(excalidrawRemark)
+      .use(drawioRemark) as unknown as Processor<Root, Root, Root, Root, string>
   }
   return processor
 }

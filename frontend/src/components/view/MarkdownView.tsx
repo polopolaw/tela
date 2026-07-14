@@ -185,6 +185,32 @@ function ExcalidrawView({
   )
 }
 
+function DrawioView({
+  sceneHash,
+  altText,
+}: {
+  sceneHash: string
+  altText: string
+}) {
+  const { pageId } = useContext(ViewContext)
+  if (!sceneHash || !pageId) {
+    return (
+      <div className="tela-drawio tela-drawio--empty" data-scene-hash="">
+        <span className="tela-drawio-empty-label">[Empty diagram]</span>
+      </div>
+    )
+  }
+  return (
+    <div className="tela-drawio" data-scene-hash={sceneHash}>
+      <img
+        src={`/api/diagrams/${pageId}/${sceneHash}.png`}
+        alt={altText || 'Draw.io diagram'}
+        loading="lazy"
+      />
+    </div>
+  )
+}
+
 function WikilinkView({ target, alias }: { target: string; alias: string | null }) {
   const { resolveWikilink, pageHref, wikilinkUnresolved } = useContext(ViewContext)
   const slug = wikilinkSlug(target)
@@ -753,6 +779,14 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
     case 'excalidraw':
       return (
         <ExcalidrawView
+          key={key}
+          sceneHash={String(node.sceneHash ?? '')}
+          altText={String(node.altText ?? '')}
+        />
+      )
+    case 'drawio':
+      return (
+        <DrawioView
           key={key}
           sceneHash={String(node.sceneHash ?? '')}
           altText={String(node.altText ?? '')}

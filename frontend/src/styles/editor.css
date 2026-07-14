@@ -777,6 +777,63 @@
     pointer-events: none;
   }
 
+  /* Draw.io diagram block — mirrors excalidraw chrome. */
+  .tela-drawio {
+    display: block;
+    position: relative;
+    margin: 0 0 var(--space-3);
+    padding: var(--space-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+  }
+  .tela-drawio img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+  }
+  .tela-drawio--empty {
+    color: var(--text-muted);
+    font-style: italic;
+    text-align: center;
+    padding: var(--space-4);
+  }
+  .tela-milkdown .ProseMirror .tela-drawio.ProseMirror-selectednode {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .tela-drawio-edit-btn {
+    position: absolute;
+    top: var(--space-2);
+    right: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    line-height: var(--leading-tight);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+    pointer-events: none;
+  }
+  .tela-milkdown [contenteditable='true'] .tela-drawio:hover .tela-drawio-edit-btn,
+  .tela-milkdown [contenteditable='true'] .tela-drawio:focus-within .tela-drawio-edit-btn {
+    opacity: 1;
+  }
+  .tela-drawio-empty-label {
+    display: block;
+  }
+  .tela-drawio-sheet-content iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 50vh;
+    border: 0;
+  }
+
   /* Inline code */
   .tela-milkdown .ProseMirror :not(pre) > code {
     font-family: var(--font-mono);
