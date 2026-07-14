@@ -106,6 +106,33 @@ export function DrawioEditSheet({
     }
   }, [open, editorReady, settled, initialXml])
 
+  // react-drawio registers its message listener once with a stale onExport
+  // closure — capture export events ourselves while the sheet is open.
+  useEffect(() => {
+    if (!open) return
+    const onMessage = (event: MessageEvent) => {
+      const origin = String(event.origin)
+      if (!origin.includes('diagrams.net') && !DRAWIO_BASE_URL.includes(origin)) {
+        return
+      }
+      let data: EventExport
+      try {
+        data = JSON.parse(event.data as string) as EventExport
+      } catch {
+        return
+      }
+      if (data.event !== 'export') return
+      if (data.xml) latestXmlRef.current = data.xml
+      const resolve = exportResolveRef.current
+      if (resolve) {
+        exportResolveRef.current = null
+        resolve(data)
+      }
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [open])
+
   async function handleSave(): Promise<void> {
     setStatus('saving')
     setErrorMessage(null)
@@ -122,9 +149,6 @@ export function DrawioEditSheet({
 
       drawioRef.current?.exportDiagram({
         format: DRAWIO_EXPORT_FORMAT,
-        spin: true,
-        border: '10',
-        scale: 1,
       })
 
       const exported = await exportPromise
@@ -156,16 +180,6 @@ export function DrawioEditSheet({
             ? err.message
             : 'Could not save diagram',
       )
-    }
-  }
-
-  function handleExport(ev: EventExport) {
-    if (ev.event !== 'export') return
-    latestXmlRef.current = ev.xml
-    const resolve = exportResolveRef.current
-    if (resolve) {
-      exportResolveRef.current = null
-      resolve(ev)
     }
   }
 
@@ -227,7 +241,6 @@ export function DrawioEditSheet({
                   onAutoSave={(ev) => {
                     latestXmlRef.current = ev.xml
                   }}
-                  onExport={handleExport}
                 />
               </Suspense>
             ) : null}
