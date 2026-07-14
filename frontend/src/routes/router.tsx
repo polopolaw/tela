@@ -615,6 +615,23 @@ const pageHistoryRoute = createRoute({
   ),
 })
 
+const pageSuggestionRoute = createRoute({
+  getParentRoute: () => spaceRoute,
+  path: 'pages/$pageId/suggestions/$suggestionId',
+  parseParams: (raw) => ({
+    pageId: Number(raw.pageId),
+    suggestionId: Number(raw.suggestionId),
+  }),
+  stringifyParams: (params) => ({
+    pageId: String(params.pageId),
+    suggestionId: String(params.suggestionId),
+  }),
+  component: lazyRouteComponent(
+    () => import('../components/app/SuggestionReviewView'),
+    'SuggestionReviewRoute',
+  ),
+})
+
 // Atlas — the doc-generation operator surface (docs/atlas.md): one top-level
 // section with projects (grouped per person/org), per-project and per-run
 // screens. Lazy so it stays off the main chunk.
@@ -835,7 +852,7 @@ const routeTree = rootRoute.addChildren([
     atlasProjectRoute,
     atlasProjectSettingsRoute,
     atlasRunRoute,
-    spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute]),
+    spaceRoute.addChildren([spaceIndexRoute, pageRoute, pageHistoryRoute, pageSuggestionRoute]),
   ]),
 ])
 

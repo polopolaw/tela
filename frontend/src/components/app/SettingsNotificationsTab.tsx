@@ -31,6 +31,21 @@ const EVENTS: { type: string; label: string; desc: string; adminOnly?: boolean }
     desc: 'When someone replies to your comment.',
   },
   {
+    type: 'suggestion_created',
+    label: 'Suggested edits',
+    desc: 'When someone proposes a change to a page you can review.',
+  },
+  {
+    type: 'suggestion_approved',
+    label: 'Suggestions approved',
+    desc: 'When an editor approves your suggested edit.',
+  },
+  {
+    type: 'suggestion_rejected',
+    label: 'Suggestions rejected',
+    desc: 'When an editor rejects your suggested edit.',
+  },
+  {
     type: 'space_added',
     label: 'Added to a space',
     desc: 'When someone gives you access to a space.',

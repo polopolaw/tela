@@ -54,6 +54,7 @@ const apiKeyBodyBytes = 32
 // tela_pat_ prefix. Used to early-reject malformed Authorization headers
 // before touching the DB.
 var apiKeyTokenBodyRe = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
+var createSuggestionPathRe = regexp.MustCompile(`^/api/pages/[0-9]+/suggestions$`)
 
 const apiKeyCtxKey contextKey = 2
 
@@ -336,8 +337,18 @@ func scopeAllowsMethod(scope, method string) bool {
 //     Rationale: the MCP `submit_feedback` tool is read-scope by design
 //     (feedback is observational; the lowest-trust keys must be able to
 //     report friction back to the developers).
+//
+//   - POST /api/pages/{id}/suggestions — read-scoped agents may propose a
+//     change for an editor to review, but cannot apply it.
 func scopeAllowsRequest(scope, method, path string) bool {
 	if method == http.MethodPost && path == "/api/feedback" {
+		switch scope {
+		case ScopeRead, ScopeWrite, ScopeAdmin:
+			return true
+		}
+		return false
+	}
+	if method == http.MethodPost && createSuggestionPathRe.MatchString(path) {
 		switch scope {
 		case ScopeRead, ScopeWrite, ScopeAdmin:
 			return true

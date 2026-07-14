@@ -13,6 +13,7 @@ import (
 
 	"github.com/zcag/tela/backend/internal/auth"
 	"github.com/zcag/tela/backend/internal/mailer"
+	"github.com/zcag/tela/backend/internal/models"
 )
 
 // Notifications: "something happened that a specific user should know about."
@@ -22,12 +23,15 @@ import (
 // Event types. Text codes (not a DB enum) so a new kind is additive — add a
 // constant, an emit site, and a frontend render case.
 const (
-	notifMention        = "mention"
-	notifPageUpdated    = "page_updated"
-	notifSpaceAdded     = "space_added"
-	notifCommentReply   = "comment_reply"
-	notifPageCreated    = "page_created"
-	notifUserRegistered = "user_registered"
+	notifMention            = "mention"
+	notifPageUpdated        = "page_updated"
+	notifSpaceAdded         = "space_added"
+	notifCommentReply       = "comment_reply"
+	notifPageCreated        = "page_created"
+	notifUserRegistered     = "user_registered"
+	notifSuggestionCreated  = "suggestion_created"
+	notifSuggestionApproved = "suggestion_approved"
+	notifSuggestionRejected = "suggestion_rejected"
 )
 
 // Delivery channels. Only inapp is delivered today; email prefs are stored for
@@ -38,7 +42,49 @@ const (
 )
 
 // userMentionRE matches the canonical on-wire person mention the editor inserts:
-// `tela://user/{id}`. Mirrors wikiLinkRE for pages.
+// `tela://user/{id}`.
+
+// notifySuggestionCreated alerts the people who can review a proposal. It is
+// intentionally in-app only for v1 (unknown email event types are skipped).
+func (s *Server) notifySuggestionCreated(ctx context.Context, author *auth.User, page models.Page, suggestion models.PageSuggestion) {
+	rows, err := s.DB.QueryContext(ctx, `SELECT user_id FROM space_access WHERE space_id=$1 AND role IN ('owner','editor') AND user_id <> $2`, page.SpaceID, author.ID)
+	if err != nil {
+		slog.Error("notify suggestion created: recipients", "err", err)
+		return
+	}
+	defer rows.Close()
+	var out []notificationInput
+	for rows.Next() {
+		var userID int64
+		if rows.Scan(&userID) != nil {
+			continue
+		}
+		actorID := author.ID
+		out = append(out, notificationInput{UserID: userID, Type: notifSuggestionCreated, ActorID: &actorID, SubjectKind: "page", SubjectID: page.ID, SpaceID: &page.SpaceID, CollapseUnread: true,
+			Data: map[string]any{"page_title": page.Title, "suggestion_id": suggestion.ID, "author_username": author.Username, "summary": cleanSnippet(suggestion.Body)}})
+	}
+	s.emitNotifications(ctx, out...)
+}
+
+func (s *Server) notifySuggestionApproved(ctx context.Context, reviewer *auth.User, page models.Page, suggestion models.PageSuggestion, partial bool, accepted, total int) {
+	if suggestion.AuthorID == reviewer.ID {
+		return
+	}
+	reviewerID := reviewer.ID
+	s.emitNotifications(ctx, notificationInput{UserID: suggestion.AuthorID, Type: notifSuggestionApproved, ActorID: &reviewerID, SubjectKind: "page", SubjectID: page.ID, SpaceID: &page.SpaceID,
+		DedupKey: "suggestion_approved:" + strconv.FormatInt(suggestion.ID, 10), Data: map[string]any{"page_title": page.Title, "suggestion_id": suggestion.ID, "partial": partial, "accepted_count": accepted, "total_count": total, "actor_username": reviewer.Username}})
+}
+
+func (s *Server) notifySuggestionRejected(ctx context.Context, reviewer *auth.User, page models.Page, suggestion models.PageSuggestion) {
+	if suggestion.AuthorID == reviewer.ID {
+		return
+	}
+	reviewerID := reviewer.ID
+	s.emitNotifications(ctx, notificationInput{UserID: suggestion.AuthorID, Type: notifSuggestionRejected, ActorID: &reviewerID, SubjectKind: "page", SubjectID: page.ID, SpaceID: &page.SpaceID,
+		DedupKey: "suggestion_rejected:" + strconv.FormatInt(suggestion.ID, 10), Data: map[string]any{"page_title": page.Title, "suggestion_id": suggestion.ID, "actor_username": reviewer.Username}})
+}
+
+// userMentionRE extracts `tela://user/{id}` mentions. Mirrors wikiLinkRE for pages.
 var userMentionRE = regexp.MustCompile(`tela://user/([0-9]+)`)
 
 // parseUserMentions returns the distinct positive user ids mentioned in body.

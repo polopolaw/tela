@@ -1,5 +1,7 @@
 package models
 
+import "encoding/json"
+
 type Org struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
@@ -61,6 +63,29 @@ type Page struct {
 	// slugify(title). Governs only the sync surface's filename, never the URL slug.
 	// Server-internal (sync plumbing), so kept out of the REST/JSON shape.
 	Filename *string `json:"-"`
+}
+
+// PageSuggestion is a proposed page change. Title and Props are nullable so a
+// proposal can modify only the body; its base revision supports a three-way
+// review when the live page has since changed.
+type PageSuggestion struct {
+	ID                 int64           `json:"id"`
+	PageID             int64           `json:"page_id"`
+	AuthorID           int64           `json:"author_id"`
+	AuthorUsername     *string         `json:"author_username,omitempty"`
+	Title              *string         `json:"title,omitempty"`
+	Body               string          `json:"body"`
+	Props              map[string]any  `json:"props,omitempty"`
+	BaseRevisionID     *int64          `json:"base_revision_id,omitempty"`
+	Status             string          `json:"status"`
+	Summary            *string         `json:"summary,omitempty"`
+	ReviewNote         *string         `json:"review_note,omitempty"`
+	AppliedHunks       json.RawMessage `json:"applied_hunks,omitempty"`
+	ReviewedBy         *int64          `json:"reviewed_by,omitempty"`
+	ReviewedByUsername *string         `json:"reviewed_by_username,omitempty"`
+	ReviewedAt         *string         `json:"reviewed_at,omitempty"`
+	CreatedAt          string          `json:"created_at"`
+	UpdatedAt          string          `json:"updated_at"`
 }
 
 // Comment is the wire shape for an M8 comment row. Roots have ParentID==nil

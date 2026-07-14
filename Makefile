@@ -201,8 +201,11 @@ endif
 dev-db:
 	@docker start $(DEV_PG_CONTAINER) >/dev/null 2>&1 || \
 	  docker run -d --name $(DEV_PG_CONTAINER) \
+	    --memory=1536m --memory-swap=1536m --cpus=2 \
 	    -e POSTGRES_USER=tela -e POSTGRES_PASSWORD=tela -e POSTGRES_DB=tela \
 	    -p 55433:5432 pgvector/pgvector:pg17 >/dev/null
+	@# Cap an already-created container too (no-op if limits already set).
+	@docker update --memory=1536m --memory-swap=1536m --cpus=2 $(DEV_PG_CONTAINER) >/dev/null 2>&1 || true
 	@echo "waiting for postgres…"; \
 	for i in $$(seq 1 30); do \
 	  docker exec $(DEV_PG_CONTAINER) pg_isready -U tela -d tela >/dev/null 2>&1 && break; \
@@ -215,8 +218,38 @@ be-dev: dev-db
 # Backend unit/integration tests against a real Postgres (the testdb harness
 # clones a fresh throwaway database per test). Boots dev-db first. Runs the
 # blocks-manifest gate first so a stale agent guide / uncovered block fails CI.
+#
+# HARD resource caps via systemd-run --user (cgroup MemoryMax/CPUQuota). Soft
+# Go caps alone are not enough: a hung loop or parallel package fan-out can still
+# thrash the host. Prefer `make test-suggestions` while iterating.
+#
+# Override: TELA_TEST_MEM=2048MiB TELA_TEST_CPU=200% make test
+# GOMEMLIMIT needs an IEC/SI suffix Go accepts (e.g. 1024MiB), not bare "1G".
+TELA_TEST_MEM ?= 1024MiB
+TELA_TEST_CPU ?= 100%
+TELA_CGROUP_MEM ?= 1G
+
+define tela-go-test
+	@command -v systemd-run >/dev/null || { echo "systemd-run required for capped tests"; exit 1; }
+	systemd-run --user --collect --pipe --wait \
+	  -p MemoryMax=$(TELA_CGROUP_MEM) \
+	  -p MemoryHigh=$(TELA_CGROUP_MEM) \
+	  -p CPUQuota=$(TELA_TEST_CPU) \
+	  -p TasksMax=256 \
+	  -E GOMAXPROCS=1 \
+	  -E GOMEMLIMIT=$(TELA_TEST_MEM) \
+	  -E TELA_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" \
+	  --working-directory="$(CURDIR)/backend" \
+	  go test $(1)
+endef
+
+# Full suite — capped, serial packages. Still heavier than test-suggestions.
 test: blocks-gate dev-db
-	cd backend && TELA_TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./...
+	$(call tela-go-test,./... -p 1 -parallel 1 -timeout 10m -count=1)
+
+# Narrow/smoke path for page-suggestions (cheap; use this by default).
+test-suggestions: dev-db
+	$(call tela-go-test,./internal/merge/ ./internal/api/ -p 1 -parallel 1 -timeout 90s -count=1 -run 'Hunk|Suggestion|PageSuggestions|Merge3|Scalar|MergeProps')
 
 # ── Block authoring manifest (editor slash menu + agent guide source) ───────
 # Source of truth: frontend/src/components/app/blocks-manifest.json. blocks-gen

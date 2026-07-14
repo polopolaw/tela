@@ -89,7 +89,8 @@ func authoringGuideMarkdown(withExample bool) string {
 	fence := "````"
 	var b strings.Builder
 	b.WriteString("# Authoring tela pages\n\n")
-	b.WriteString("A tela page body is markdown, but the reader renders a rich block palette **beyond plain markdown**. Reach for these blocks to make pages scannable and visual instead of walls of text — a callout for an aside, tabs for alternatives, a real diagram over a described one. Standard markdown (headings, lists, **bold**, links, tables) works as usual.\n")
+	b.WriteString("A tela page body is markdown, but the reader renders a rich block palette **beyond plain markdown**. Reach for these blocks to make pages scannable and visual instead of walls of text — a callout for an aside, tabs for alternatives, a real diagram over a described one. Standard markdown (headings, lists, **bold**, links, tables) works as usual.\n\n")
+	b.WriteString("**Suggestions vs direct edits:** use `create_suggestion` (works with read-scoped keys / viewer membership) when the change should be reviewed before it lands on the live page. Use `update_page` / `patch_page` only when you have an explicit write mandate and editor+ access.\n")
 
 	order, byCat := agentBlocksByCategory()
 	for _, cat := range order {

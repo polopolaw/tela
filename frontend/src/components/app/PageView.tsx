@@ -48,6 +48,8 @@ import { useMe } from '../../lib/queries/auth'
 import { useRevision } from '../../lib/queries/page-revisions'
 import { AttachmentStrip } from './AttachmentStrip'
 import { CommentsPanel } from './CommentsPanel'
+import { OpenSuggestionsBadge, SuggestionsPanel } from './SuggestionsPanel'
+import { SuggestEditButton, SuggestEditSurface } from './SuggestEditSurface'
 import { PageProperties } from './PageProperties'
 import { SummaryTitle, pageSummary } from './SummaryHint'
 import { LocalGraphCard } from './LocalGraphCard'
@@ -99,6 +101,7 @@ import {
   useUpdatePage,
 } from '../../lib/queries/pages'
 import { useSpace, useSpaceRole } from '../../lib/queries/spaces'
+import { usePageSuggestions } from '../../lib/queries/page-suggestions'
 import type { Page, PageTreeNode } from '../../lib/types'
 import { Button } from '../ui/button'
 import { EmptyState } from '../ui/empty-state'
@@ -348,8 +351,18 @@ function PageViewer({
   // Active sheet index (lifted from the grid) so a sheet export can scope to it.
   const [activeSheet, setActiveSheet] = useState(0)
   const [commentsOpen, setCommentsOpen] = useState(false)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [showResolvedComments, setShowResolvedComments] = useState(false)
+  const [suggestMode, setSuggestMode] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  const canSuggestDoc = !isDeck && !isSheet
+  const openSuggestionsQuery = usePageSuggestions({
+    pageId: page.id,
+    status: 'open',
+    enabled: roleResolved && !isViewer,
+  })
+  const openSuggestionCount = openSuggestionsQuery.data?.length ?? 0
 
   // Comments are read + reply in view (new-comment-from-selection is edit-only
   // for now). The panel + inline highlights are gated to non-viewers, matching
@@ -484,6 +497,17 @@ function PageViewer({
 
   const summary = pageSummary(page.props)
 
+  if (suggestMode && canSuggestDoc) {
+    return (
+      <SuggestEditSurface
+        page={page}
+        spaceId={spaceId}
+        onCancel={() => setSuggestMode(false)}
+        isViewer={isViewer}
+      />
+    )
+  }
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <header className="flex items-center justify-between gap-[var(--space-4)] px-[var(--space-6)] py-[var(--space-3)] border-b border-[var(--border-subtle)] shrink-0">
@@ -503,6 +527,7 @@ function PageViewer({
               aria-label="Comments"
               onClick={() => {
                 setGraphOpen(false)
+                setSuggestionsOpen(false)
                 setCommentsOpen(true)
               }}
               className="h-[var(--space-8)] px-[var(--space-3)]"
@@ -515,6 +540,16 @@ function PageViewer({
               )}
             </Button>
           ) : null}
+          {!isViewer ? (
+            <OpenSuggestionsBadge
+              count={openSuggestionCount}
+              onClick={() => {
+                setGraphOpen(false)
+                setCommentsOpen(false)
+                setSuggestionsOpen(true)
+              }}
+            />
+          ) : null}
           {roleResolved ? (
             <Button
               type="button"
@@ -524,6 +559,7 @@ function PageViewer({
               title="Graph — this page's connections"
               onClick={() => {
                 setCommentsOpen(false)
+                setSuggestionsOpen(false)
                 setGraphOpen(true)
               }}
               className="h-[var(--space-8)] w-[var(--space-8)] p-0"
@@ -588,6 +624,9 @@ function PageViewer({
               <Pencil width={16} height={16} />
               <span>Edit</span>
             </Button>
+          ) : null}
+          {roleResolved && canSuggestDoc && (isViewer || canEdit) ? (
+            <SuggestEditButton onClick={() => setSuggestMode(true)} />
           ) : null}
           {roleResolved ? (
             <PageActionsMenu
@@ -724,6 +763,16 @@ function PageViewer({
           orphanIds={EMPTY_ORPHAN_IDS}
           showResolved={showResolvedComments}
           onShowResolvedChange={setShowResolvedComments}
+        />
+      ) : null}
+
+      {roleResolved ? (
+        <SuggestionsPanel
+          spaceId={spaceId}
+          pageId={page.id}
+          open={suggestionsOpen}
+          onOpenChange={setSuggestionsOpen}
+          canReview={!isViewer}
         />
       ) : null}
     </div>
@@ -975,6 +1024,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
   // live selection at submit time without prop-drilling the view down.
   const editorViewRef = useRef<EditorView | null>(null)
   const [commentsOpen, setCommentsOpen] = useState(false)
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const [graphOpen, setGraphOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [selectionEmpty, setSelectionEmpty] = useState(true)
@@ -1008,6 +1058,12 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
     pageId: page.id,
     enabled: roleResolved && !isViewer,
   })
+  const openSuggestionsQuery = usePageSuggestions({
+    pageId: page.id,
+    status: 'open',
+    enabled: roleResolved && !isViewer,
+  })
+  const openSuggestionCount = openSuggestionsQuery.data?.length ?? 0
   const openThreadCount = useMemo(() => {
     const data = commentsForHeader.data
     if (!data) return null
@@ -1437,6 +1493,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   aria-label="Comments"
                   onClick={() => {
                     setGraphOpen(false)
+                    setSuggestionsOpen(false)
                     setCommentsOpen(true)
                   }}
                   className="h-[var(--space-8)] px-[var(--space-3)]"
@@ -1449,6 +1506,16 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   )}
                 </Button>
               ) : null}
+              {roleResolved && !isViewer ? (
+                <OpenSuggestionsBadge
+                  count={openSuggestionCount}
+                  onClick={() => {
+                    setGraphOpen(false)
+                    setCommentsOpen(false)
+                    setSuggestionsOpen(true)
+                  }}
+                />
+              ) : null}
               {roleResolved ? (
                 <Button
                   type="button"
@@ -1458,6 +1525,7 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
                   title="Graph — this page's connections"
                   onClick={() => {
                     setCommentsOpen(false)
+                    setSuggestionsOpen(false)
                     setGraphOpen(true)
                   }}
                   className="h-[var(--space-8)] w-[var(--space-8)] p-0"
@@ -1727,6 +1795,16 @@ function PageEditor({ page, spaceId, draftRevId, onDeleted, isDeck, isSheet, scr
           orphanIds={orphanIds}
           showResolved={showResolvedComments}
           onShowResolvedChange={handleShowResolvedChange}
+        />
+      ) : null}
+
+      {roleResolved && !isViewer && !isDraftMode ? (
+        <SuggestionsPanel
+          spaceId={spaceId}
+          pageId={page.id}
+          open={suggestionsOpen}
+          onOpenChange={setSuggestionsOpen}
+          canReview
         />
       ) : null}
 

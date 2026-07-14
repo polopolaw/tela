@@ -86,6 +86,11 @@ emission policies on `notificationInput`:
   (default on; `GET|PUT /api/users/me/autowatch`, toggle in Settings →
   Notifications). Edit-autowatch is the interactive path only — sync edits go
   through `applyUpdateTx`, so a vault sync never auto-subscribes you.
+- **Suggestions** — creating a page suggestion notifies the page's editors and
+  owners (`suggestion_created`, collapsed while unread). Approving or rejecting
+  notifies its author (`suggestion_approved` / `suggestion_rejected`) once per
+  suggestion. These events are in-app only in v1; email delivery intentionally
+  has no templates yet.
 
 ## API
 

@@ -12,8 +12,8 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/zcag/tela/backend/internal/models"
-	"github.com/zcag/tela/backend/internal/sheetproj"
 	"github.com/zcag/tela/backend/internal/rag"
+	"github.com/zcag/tela/backend/internal/sheetproj"
 )
 
 // retrievalGuideMarkdown is the "how to find things" preamble carried in the
@@ -162,7 +162,7 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "update_page",
 		Title:       "Update page",
-		Description: "Patch a page's title and/or body (editor+). A body change auto-snapshots a revision. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
+		Description: "Patch a page's title and/or body (editor+; write scope). A body change auto-snapshots a revision. Prefer create_suggestion when the change should be reviewed first or you only have a read-scoped key. " + authoringToolHint() + deckAuthoringToolHint() + sheetAuthoringToolHint(),
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, IdempotentHint: true, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpUpdatePage)
 
@@ -263,6 +263,16 @@ func (s *Server) registerMCPTools(server *mcp.Server) {
 		Description: "Attach a root (non-reply) comment to a page, anchored to a specific passage by a {prefix, exact, suffix} text triplet so it stays pinned to the right spot as the page changes (editor+). Pass idempotency_key to make retries safe (a repeat returns the original comment instead of posting a duplicate). Use for feedback ON page content; to report problems with tela itself use submit_feedback.",
 		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no},
 	}, s.mcpAddComment)
+
+	// Suggestions let a read-scoped agent propose an edit without receiving
+	// direct write authority. Review/apply remains editor+ and write-scoped.
+	mcp.AddTool(server, &mcp.Tool{Name: "create_suggestion", Title: "Propose page change", Description: "Propose a body/title/props change for an editor to review without modifying the live page. Prefer this over update_page/patch_page when you lack an explicit write mandate, when the change should be reviewed first, or when using a read-scoped key. Available to viewer+ members and read-scoped API keys.", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no}}, s.mcpCreateSuggestion)
+	mcp.AddTool(server, &mcp.Tool{Name: "list_suggestions", Title: "List page suggestions", Description: "List suggestions for a page (viewer+).", Annotations: readOnly}, s.mcpListSuggestions)
+	mcp.AddTool(server, &mcp.Tool{Name: "get_suggestion", Title: "Get suggestion", Description: "Read one suggestion (viewer+).", Annotations: readOnly}, s.mcpGetSuggestion)
+	mcp.AddTool(server, &mcp.Tool{Name: "get_suggestion_hunks", Title: "Review suggestion hunks", Description: "Compute the review hunks for a suggestion (editor+).", Annotations: readOnly}, s.mcpGetSuggestionHunks)
+	mcp.AddTool(server, &mcp.Tool{Name: "apply_suggestion", Title: "Apply suggestion", Description: "Apply a suggestion after resolving conflicts (editor+; write scope).", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no}}, s.mcpApplySuggestion)
+	mcp.AddTool(server, &mcp.Tool{Name: "reject_suggestion", Title: "Reject suggestion", Description: "Reject an open suggestion (editor+; write scope).", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no}}, s.mcpRejectSuggestion)
+	mcp.AddTool(server, &mcp.Tool{Name: "withdraw_suggestion", Title: "Withdraw suggestion", Description: "Withdraw your own open suggestion (author only; read scope ok).", Annotations: &mcp.ToolAnnotations{ReadOnlyHint: &no, DestructiveHint: &no, OpenWorldHint: &no}}, s.mcpWithdrawSuggestion)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_space",
@@ -1226,6 +1236,161 @@ func (s *Server) mcpAddComment(ctx context.Context, req *mcp.CallToolRequest, in
 		}
 		return nil, addCommentOut{Comment: c}, nil
 	})
+}
+
+// ---- page suggestions ------------------------------------------------------
+
+type suggestionOut struct {
+	Suggestion models.PageSuggestion `json:"suggestion"`
+}
+type suggestionsOut struct {
+	Suggestions []models.PageSuggestion `json:"suggestions"`
+}
+type suggestionHunksOut struct {
+	Hunks   any `json:"hunks"`
+	Summary any `json:"summary"`
+}
+type createSuggestionIn struct {
+	PageID         int64          `json:"page_id"`
+	Title          *string        `json:"title,omitempty"`
+	Body           string         `json:"body"`
+	Props          map[string]any `json:"props,omitempty"`
+	Summary        *string        `json:"summary,omitempty"`
+	IdempotencyKey string         `json:"idempotency_key,omitempty"`
+}
+
+func (s *Server) mcpCreateSuggestion(ctx context.Context, req *mcp.CallToolRequest, in createSuggestionIn) (*mcp.CallToolResult, suggestionOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), suggestionOut{}, nil
+	}
+	return mcpIdempotent(ctx, s.DB, u.ID, in.IdempotencyKey, "create_suggestion", func() (*mcp.CallToolResult, suggestionOut, error) {
+		body := in.Body
+		v, ae := s.createSuggestionCore(ctx, u, k, in.PageID, pageSuggestionRequest{Title: in.Title, Body: &body, Props: in.Props, Summary: in.Summary})
+		if ae != nil {
+			return mcpErr(ae), suggestionOut{}, nil
+		}
+		return nil, suggestionOut{Suggestion: v}, nil
+	})
+}
+
+type suggestionIDIn struct {
+	SuggestionID int64 `json:"suggestion_id"`
+}
+
+func (s *Server) mcpGetSuggestion(ctx context.Context, req *mcp.CallToolRequest, in suggestionIDIn) (*mcp.CallToolResult, suggestionOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), suggestionOut{}, nil
+	}
+	v, _, ae := s.getSuggestionCore(ctx, u, k, in.SuggestionID, false)
+	if ae != nil {
+		return mcpErr(ae), suggestionOut{}, nil
+	}
+	return nil, suggestionOut{Suggestion: v}, nil
+}
+
+type listSuggestionsIn struct {
+	PageID int64  `json:"page_id"`
+	Status string `json:"status,omitempty"`
+}
+
+func (s *Server) mcpListSuggestions(ctx context.Context, req *mcp.CallToolRequest, in listSuggestionsIn) (*mcp.CallToolResult, suggestionsOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), suggestionsOut{}, nil
+	}
+	page, err := selectPageByID(ctx, s.DB, in.PageID)
+	if err != nil {
+		return mcpErr(&apiErr{404, "page_not_found", "page not found"}), suggestionsOut{}, nil
+	}
+	if _, ae := s.membershipCore(ctx, u, k, page.SpaceID); ae != nil {
+		return mcpErr(ae), suggestionsOut{}, nil
+	}
+	v, err := listSuggestions(ctx, s.DB, in.PageID, in.Status)
+	if err != nil {
+		return mcpErr(&apiErr{500, "internal", "list suggestions failed"}), suggestionsOut{}, nil
+	}
+	return nil, suggestionsOut{Suggestions: v}, nil
+}
+func (s *Server) mcpGetSuggestionHunks(ctx context.Context, req *mcp.CallToolRequest, in suggestionIDIn) (*mcp.CallToolResult, suggestionHunksOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), suggestionHunksOut{}, nil
+	}
+	v, p, ae := s.getSuggestionCore(ctx, u, k, in.SuggestionID, true)
+	if ae != nil {
+		return mcpErr(ae), suggestionHunksOut{}, nil
+	}
+	h, summary, ae := s.suggestionHunks(ctx, v, p)
+	if ae != nil {
+		return mcpErr(ae), suggestionHunksOut{}, nil
+	}
+	return nil, suggestionHunksOut{Hunks: h, Summary: summary}, nil
+}
+
+type applySuggestionIn struct {
+	SuggestionID int64             `json:"suggestion_id"`
+	Mode         string            `json:"mode"`
+	Choices      map[string]string `json:"choices,omitempty"`
+	ReviewNote   *string           `json:"review_note,omitempty"`
+}
+
+func (s *Server) mcpApplySuggestion(ctx context.Context, req *mcp.CallToolRequest, in applySuggestionIn) (*mcp.CallToolResult, suggestionOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), suggestionOut{}, nil
+	}
+	if ae := mcpRequireWrite(k); ae != nil {
+		return mcpErr(ae), suggestionOut{}, nil
+	}
+	v, ae := s.applySuggestionCore(ctx, u, k, in.SuggestionID, suggestionApplyRequest{Mode: in.Mode, Choices: in.Choices, ReviewNote: in.ReviewNote})
+	if ae != nil {
+		return mcpErr(ae), suggestionOut{}, nil
+	}
+	return nil, suggestionOut{Suggestion: v}, nil
+}
+func (s *Server) mcpRejectSuggestion(ctx context.Context, req *mcp.CallToolRequest, in suggestionIDIn) (*mcp.CallToolResult, okOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), okOut{}, nil
+	}
+	if ae := mcpRequireWrite(k); ae != nil {
+		return mcpErr(ae), okOut{}, nil
+	}
+	v, p, ae := s.getSuggestionCore(ctx, u, k, in.SuggestionID, true)
+	if ae != nil {
+		return mcpErr(ae), okOut{}, nil
+	}
+	if v.Status != "open" {
+		return mcpErr(&apiErr{409, "suggestion_not_open", "suggestion is not open"}), okOut{}, nil
+	}
+	if _, err := s.DB.ExecContext(ctx, `UPDATE page_suggestions SET status='rejected',reviewed_by=$1,reviewed_at=tela_now(),updated_at=tela_now() WHERE id=$2 AND status='open'`, u.ID, v.ID); err != nil {
+		return mcpErr(&apiErr{500, "internal", "reject suggestion failed"}), okOut{}, nil
+	}
+	s.notifySuggestionRejected(ctx, u, p, v)
+	return nil, okOut{OK: true}, nil
+}
+func (s *Server) mcpWithdrawSuggestion(ctx context.Context, req *mcp.CallToolRequest, in suggestionIDIn) (*mcp.CallToolResult, okOut, error) {
+	u, k := mcpIdentity(req)
+	if u == nil {
+		return mcpUnauthErr(), okOut{}, nil
+	}
+	// Author withdraw is allowed on read-scoped keys (same trust as create_suggestion).
+	v, _, ae := s.getSuggestionCore(ctx, u, k, in.SuggestionID, false)
+	if ae != nil {
+		return mcpErr(ae), okOut{}, nil
+	}
+	if v.AuthorID != u.ID {
+		return mcpErr(&apiErr{403, "forbidden", "only the author can withdraw a suggestion"}), okOut{}, nil
+	}
+	if v.Status != "open" {
+		return mcpErr(&apiErr{409, "suggestion_not_open", "suggestion is not open"}), okOut{}, nil
+	}
+	if _, err := s.DB.ExecContext(ctx, `UPDATE page_suggestions SET status='withdrawn', updated_at=tela_now() WHERE id=$1 AND status='open'`, v.ID); err != nil {
+		return mcpErr(&apiErr{500, "internal", "withdraw suggestion failed"}), okOut{}, nil
+	}
+	return nil, okOut{OK: true}, nil
 }
 
 // ---- create_space / update_space / delete_space --------------------------

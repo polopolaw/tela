@@ -1,16 +1,19 @@
 import { useMemo } from 'react'
+import { Link } from '@tanstack/react-router'
 import {
   CalendarClock,
   Clock,
   Copy,
   FileText,
   Folder,
+  GitPullRequest,
   ShieldAlert,
   Unlink,
 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { EmptyState } from '../ui/empty-state'
 import { useSpaceOverview } from '../../lib/queries/space-overview'
+import { useSpaceSuggestions } from '../../lib/queries/page-suggestions'
 import { useSpaces } from '../../lib/queries/spaces'
 import { FollowButton } from './FollowButton'
 import { navigateToPage } from '../../lib/pageHitItem'
@@ -23,6 +26,7 @@ import { cn } from '../../lib/utils'
 // Read-only: every row just navigates; nothing here authors.
 export function SpaceView({ spaceId }: { spaceId: number }) {
   const { data, isLoading } = useSpaceOverview(spaceId)
+  const { data: openSuggestions } = useSpaceSuggestions({ spaceId, status: 'open' })
   const spacesQuery = useSpaces()
   const spaceName = useMemo(
     () => spacesQuery.data?.find((s) => s.id === spaceId)?.name ?? 'Space',
@@ -109,6 +113,33 @@ export function SpaceView({ spaceId }: { spaceId: number }) {
                           onSelect={() => navigateToPage(spaceId, p.id)}
                         />
                       ))}
+                    </List>
+                  </Section>
+                ) : null}
+
+                {openSuggestions && openSuggestions.length > 0 ? (
+                  <Section title="Pending suggestions" icon={GitPullRequest}>
+                    <List>
+                      {openSuggestions.map((s) => {
+                        const author = s.author_username ?? 'Someone'
+                        const rel = relativeTimeFromSqlite(s.created_at)
+                        const preview = s.summary?.trim() || 'Suggested edit'
+                        return (
+                          <LinkRow
+                            key={s.id}
+                            icon={GitPullRequest}
+                            title={s.page_title || 'Untitled'}
+                            meta={`${author} · ${rel}`}
+                            subtitle={preview}
+                            to="/spaces/$spaceId/pages/$pageId/suggestions/$suggestionId"
+                            params={{
+                              spaceId,
+                              pageId: s.page_id,
+                              suggestionId: s.id,
+                            }}
+                          />
+                        )
+                      })}
                     </List>
                   </Section>
                 ) : null}
@@ -281,6 +312,59 @@ function Row({
           </span>
         ) : null}
       </button>
+    </li>
+  )
+}
+
+function LinkRow({
+  icon: Icon,
+  title,
+  meta,
+  subtitle,
+  to,
+  params,
+}: {
+  icon: typeof FileText
+  title: string
+  meta?: string
+  subtitle?: string
+  to: string
+  params: Record<string, string | number>
+}) {
+  return (
+    <li className="m-0 p-0 list-none">
+      <Link
+        to={to}
+        params={params}
+        className={cn(
+          'group w-full text-left flex flex-col gap-[var(--space-1)] no-underline',
+          'px-[var(--space-3)] py-[var(--space-2)] rounded-[var(--radius-sm)]',
+          'border-0 cursor-pointer outline-none',
+          'hover:bg-[var(--surface-2)] focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+        )}
+      >
+        <span className="flex items-center gap-[var(--space-3)] min-w-0">
+          <Icon
+            width={14}
+            height={14}
+            aria-hidden
+            className="shrink-0 text-[var(--text-muted)]"
+          />
+          <span className="flex-1 min-w-0 truncate text-[length:var(--text-sm)] text-[var(--text-primary)] font-medium font-[family-name:var(--font-sans)]">
+            {title}
+          </span>
+          {meta ? (
+            <span className="shrink-0 text-[length:var(--text-xs)] text-[var(--text-muted)] font-[family-name:var(--font-sans)]">
+              {meta}
+            </span>
+          ) : null}
+        </span>
+        {subtitle ? (
+          <span className="pl-[calc(14px+var(--space-3))] text-[length:var(--text-xs)] text-[var(--text-muted)] line-clamp-1 font-[family-name:var(--font-sans)]">
+            {subtitle}
+          </span>
+        ) : null}
+      </Link>
     </li>
   )
 }

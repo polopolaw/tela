@@ -117,6 +117,8 @@ func TestMCP_SpikeListSpaces(t *testing.T) {
 		"list_spaces", "get_space", "list_pages", "get_page", "get_page_resolved", "list_backlinks",
 		"search", "research", "read_chunk", "fetch",
 		"create_page", "update_page", "delete_page", "move_page", "add_comment",
+		"create_suggestion", "list_suggestions", "get_suggestion", "get_suggestion_hunks",
+		"apply_suggestion", "reject_suggestion", "withdraw_suggestion",
 		"create_space", "update_space", "delete_space", "submit_feedback",
 		"list_attachments", "upload_attachment", "delete_attachment",
 		"request_attachment_upload", "confirm_attachment_upload",

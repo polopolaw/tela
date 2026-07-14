@@ -49,6 +49,16 @@ function describe(n: NotificationItem): string {
       const summary = typeof n.data.summary === 'string' ? n.data.summary : ''
       return summary ? `${t} — ${summary}` : t
     }
+    case 'suggestion_created':
+      return `${actor} suggested an edit to “${title}”`
+    case 'suggestion_approved': {
+      const partial = n.data.partial === true
+      return partial
+        ? `${actor} partially approved your suggestion on “${title}”`
+        : `${actor} approved your suggestion on “${title}”`
+    }
+    case 'suggestion_rejected':
+      return `${actor} rejected your suggestion on “${title}”`
     default:
       return `${actor} sent you a notification`
   }
@@ -148,6 +158,32 @@ function NotificationRow({ n, onOpen }: { n: NotificationItem; onOpen: () => voi
         <Link
           to="/atlas/projects/$projectId"
           params={{ projectId: n.data.project_id }}
+          onClick={onOpen}
+          className={className}
+        >
+          {inner}
+        </Link>
+      </DropdownMenuItem>
+    )
+  }
+  // Suggestion notifications deep-link to the review screen.
+  if (
+    (n.type === 'suggestion_created' ||
+      n.type === 'suggestion_approved' ||
+      n.type === 'suggestion_rejected') &&
+    n.subject_kind === 'page' &&
+    n.space_id != null &&
+    typeof n.data.suggestion_id === 'number'
+  ) {
+    return (
+      <DropdownMenuItem asChild>
+        <Link
+          to="/spaces/$spaceId/pages/$pageId/suggestions/$suggestionId"
+          params={{
+            spaceId: n.space_id,
+            pageId: n.subject_id,
+            suggestionId: n.data.suggestion_id,
+          }}
           onClick={onOpen}
           className={className}
         >
