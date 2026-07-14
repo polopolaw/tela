@@ -495,19 +495,21 @@
   .tela-reader .tela-milkdown .ProseMirror li::marker {
     color: var(--text-muted);
   }
-  /* Tables breathe a touch more and never break the column on overflow. The
-     reader has no `.tableWrapper` scroll container — prosemirror-tables only
-     adds it in the editable editor (see milkdown-table.ts) — so a wide table
-     would otherwise spill past the article column and collide with the sticky
-     TOC. Make the table itself the horizontal scroll port; `width:100%` keeps
-     narrow tables filling the column (max-content would shrink them) and lets
-     the existing sticky first column pin while scrolling. Reset for print
-     below so PDF columns reflow to the page instead of clipping. */
-  .tela-reader .tela-milkdown .ProseMirror table {
-    display: block;
-    width: 100%;
-    max-width: 100%;
+  /* Tables breathe a touch more and never break the column on overflow.
+     MarkdownView wraps GFM tables in `.tableWrapper` (same as the editor) so
+     the filter bar + sticky first column share one horizontal scroll port.
+     Reset for print below so PDF columns reflow to the page instead of clipping. */
+  .tela-reader .tela-milkdown .ProseMirror .tableWrapper {
     overflow-x: auto;
+    max-width: 100%;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    margin: 0 0 var(--space-3);
+  }
+  .tela-reader .tela-milkdown .ProseMirror .tableWrapper > table {
+    display: table;
+    width: 100%;
+    margin: 0;
     font-size: 0.95em;
   }
 
@@ -848,12 +850,17 @@
     }
     /* The horizontal scroll port is a screen affordance; on paper let the table
        reflow to the page width instead of clipping the overflowing columns. */
-    .tela-reader .tela-milkdown .ProseMirror table {
+    .tela-reader .tela-milkdown .ProseMirror .tableWrapper {
+      overflow: visible;
+      border: none;
+    }
+    .tela-reader .tela-milkdown .ProseMirror .tableWrapper > table {
       display: table;
       overflow: visible;
     }
     /* Interactive chrome is meaningless on paper. */
-    .tela-reader .tela-codeblock-copy {
+    .tela-reader .tela-codeblock-copy,
+    .tela-table-filter {
       display: none !important;
     }
   }

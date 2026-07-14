@@ -240,3 +240,30 @@ export const HeadingLevelsAndAnchors: Story = {
     })
   },
 }
+
+const TABLE_ENHANCEMENTS = `## Feature comparison
+
+| Feature | Free | Pro |
+| --- | --- | --- |
+| Pages | 50 | 5,000 |
+| SSO | cross | check |
+| Audit log | cross | dash |
+| Seats | 3 | 25 |
+| API | check | check |
+| Support | cross | check |
+| Domain | cross | check |
+| Export | check | check |
+`
+
+// Glyph icons + sort/filter chrome are applied on mount via enhanceAllTables.
+export const TableEnhancements: Story = {
+  args: { body: TABLE_ENHANCEMENTS },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => {
+      const root = canvasElement.querySelector('.ProseMirror')
+      expect(root?.querySelector('.tela-cell-glyph-check')).not.toBeNull()
+      expect(root?.querySelector('.tela-th-sortable')).not.toBeNull()
+      expect(root?.querySelector('.tela-table-filter')).not.toBeNull()
+    })
+  },
+}

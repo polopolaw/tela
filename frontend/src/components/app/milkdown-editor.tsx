@@ -61,6 +61,7 @@ import {
 } from '../../lib/collab/use-collab-session'
 import { slashPlugin, SlashView } from './milkdown-slash'
 import { bubblePlugin, BubbleToolbarView } from './milkdown-bubble-toolbar'
+import { tableToolbarPlugin, TableToolbarView } from './milkdown-table-toolbar'
 import { BlockHandleView } from './milkdown-block-handle'
 import { taskCheckboxPlugin } from './milkdown-task-list'
 import {
@@ -524,6 +525,9 @@ function MilkdownEditorInner({
           ctx.set(bubblePlugin.key, {
             view: pluginViewFactory({ component: BubbleToolbarView }),
           })
+          ctx.set(tableToolbarPlugin.key, {
+            view: pluginViewFactory({ component: TableToolbarView }),
+          })
           ctx.set(wikilinkPlugin.key, {
             view: pluginViewFactory({ component: WikilinkView }),
           })
@@ -858,6 +862,7 @@ function MilkdownEditorInner({
       .use(codeBlockNodeView)
       .use(slashPlugin)
       .use(bubblePlugin)
+      .use(tableToolbarPlugin)
       .use(wikilinkPlugin)
       // Emoji shortcodes: `:rocket:` → 🚀 input rule + a caret-anchored
       // `:query` autocomplete picker. The Unicode char is what's stored in the

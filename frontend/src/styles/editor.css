@@ -1612,6 +1612,12 @@
   .tela-bubble-link-input {
     min-width: 18rem;
   }
+  .tela-table-toolbar-sep {
+    width: 1px;
+    align-self: stretch;
+    margin: var(--space-1) var(--space-1);
+    background: var(--border-subtle);
+  }
 
   /* Kanban board (:::kanban). Columns laid out horizontally; cards are the
      list items, draggable between columns. */

@@ -710,3 +710,32 @@ export const LinkHoverPopover: Story = {
     })
   },
 }
+
+// ── Scenario 7: table toolbar ───────────────────────────────────────────────
+export const TableToolbar: Story = {
+  args: {
+    defaultValue: [
+      '| A | B |',
+      '| --- | --- |',
+      '| one | two |',
+    ].join('\n'),
+  },
+  play: async ({ canvasElement }) => {
+    const pm = await getEditable(canvasElement)
+    const cell = pm.querySelector('td')
+    expect(cell, 'table cell should render').toBeTruthy()
+    await userEvent.click(cell as HTMLElement)
+    await waitFor(() => {
+      const bar = document.querySelector('.tela-table-toolbar[data-show="true"]')
+      expect(bar, 'table toolbar should show in a cell').not.toBeNull()
+    })
+    const addRow = document.querySelector(
+      '.tela-table-toolbar button[aria-label="Add row below"]',
+    )
+    expect(addRow).not.toBeNull()
+    await userEvent.click(addRow as HTMLElement)
+    await waitFor(() => {
+      expect(pm.querySelectorAll('tbody tr').length).toBe(2)
+    })
+  },
+}

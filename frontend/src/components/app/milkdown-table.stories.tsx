@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
 import { useEffect, useRef } from 'react'
-import { enhanceReadonlyTable } from './milkdown-table'
+import { enhanceAllTables } from './milkdown-table'
 
 // Renders a static GFM-style table with the same classes the decoration plugin
 // adds (glyph cells, featured column) and runs the REAL enhanceReadonlyTable for
@@ -23,7 +23,10 @@ const ROWS: Row[] = [
 function ComparisonTable() {
   const ref = useRef<HTMLTableElement>(null)
   useEffect(() => {
-    if (ref.current) enhanceReadonlyTable(ref.current)
+    if (ref.current) {
+      const root = ref.current.closest('.ProseMirror') as HTMLElement | null
+      if (root) enhanceAllTables(root)
+    }
   }, [])
   return (
     <div className="tela-milkdown">

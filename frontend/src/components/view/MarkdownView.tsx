@@ -27,6 +27,7 @@ import {
 import { accentForValue, statLineClass } from '../../lib/blocks/stat-trend'
 import { wikilinkSlug, wikilinkHrefHash } from '../../lib/markdown/transforms/wikilink'
 import { isSafeUrl } from '../../lib/markdown/remark-safe-links'
+import { enhanceAllTables } from '../app/milkdown-table'
 import { embedIframeSrc } from '../../lib/markdown/embed'
 import { isPdf, PdfPreviewDialog } from '../ui/pdf-viewer'
 import type { CommentThread } from '../../lib/comments/use-comments'
@@ -786,30 +787,32 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
       const rows = node.children ?? []
       const [head, ...bodyRows] = rows
       return (
-        <table key={key}>
-          {head ? (
-            <thead>
-              <tr>
-                {(head.children ?? []).map((cell, i) => (
-                  <th key={i} style={alignStyle(align[i])}>
-                    {renderChildren(cell)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          ) : null}
-          <tbody>
-            {bodyRows.map((row, r) => (
-              <tr key={r}>
-                {(row.children ?? []).map((cell, i) => (
-                  <td key={i} style={alignStyle(align[i])}>
-                    {renderChildren(cell)}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div key={key} className="tableWrapper">
+          <table>
+            {head ? (
+              <thead>
+                <tr>
+                  {(head.children ?? []).map((cell, i) => (
+                    <th key={i} style={alignStyle(align[i])}>
+                      {renderChildren(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            ) : null}
+            <tbody>
+              {bodyRows.map((row, r) => (
+                <tr key={r}>
+                  {(row.children ?? []).map((cell, i) => (
+                    <td key={i} style={alignStyle(align[i])}>
+                      {renderChildren(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )
     }
     case 'callout': {
@@ -1014,7 +1017,12 @@ export function MarkdownView({
   const contentRef = useRef<HTMLDivElement>(null)
   useCommentHighlights(contentRef, commentThreads, onCommentClick)
   useEffect(() => {
-    if (contentRef.current) onReady?.(contentRef.current)
+    const id = requestAnimationFrame(() => {
+      if (!contentRef.current) return
+      enhanceAllTables(contentRef.current)
+      onReady?.(contentRef.current)
+    })
+    return () => cancelAnimationFrame(id)
   }, [body, onReady])
   return (
     <ViewContext.Provider value={ctx}>

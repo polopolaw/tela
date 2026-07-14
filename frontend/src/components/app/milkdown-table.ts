@@ -43,10 +43,34 @@ const GLYPHS: Record<string, 'check' | 'cross' | 'dash'> = {
   'n/a': 'dash',
 }
 
-function glyphFor(text: string): 'check' | 'cross' | 'dash' | null {
+export function glyphFor(text: string): 'check' | 'cross' | 'dash' | null {
   const t = text.trim()
   if (!t) return null
   return GLYPHS[t.toLowerCase()] ?? null
+}
+
+const GLYPH_CLASS = 'tela-cell-glyph'
+const GLYPH_KINDS = ['check', 'cross', 'dash'] as const
+
+/** DOM glyph pass — mirrors the PM decoration classes for static HTML tables. */
+export function applyGlyphToTable(table: HTMLTableElement): void {
+  for (const cell of table.querySelectorAll('th, td')) {
+    const el = cell as HTMLTableCellElement
+    const g = glyphFor(el.textContent ?? '')
+    el.classList.remove(GLYPH_CLASS, ...GLYPH_KINDS.map((k) => `${GLYPH_CLASS}-${k}`))
+    if (g) el.classList.add(GLYPH_CLASS, `${GLYPH_CLASS}-${g}`)
+  }
+}
+
+/** Sort/filter + glyph enhancement for every GFM table under `root`. Idempotent. */
+export function enhanceAllTables(root: HTMLElement): void {
+  root
+    .querySelectorAll('table:not(.tela-calendar-table)')
+    .forEach((t) => {
+      const table = t as HTMLTableElement
+      applyGlyphToTable(table)
+      enhanceReadonlyTable(table)
+    })
 }
 
 function buildDecorations(doc: ProseNode): DecorationSet {
@@ -146,13 +170,7 @@ export const tableEnhancePlugin = $prose(() => {
     view(editorView) {
       const run = () => {
         if (editorView.editable) return
-        // GFM content tables only — exclude block-internal tables like the
-        // calendar month grid (`.tela-calendar-table`), which is a <table> too
-        // but must never get sort/filter chrome. (In the reader, GFM tables are
-        // NOT wrapped in `.tableWrapper`, so we can't filter on that.)
-        editorView.dom
-          .querySelectorAll('table:not(.tela-calendar-table)')
-          .forEach((t) => enhanceReadonlyTable(t as HTMLTableElement))
+        enhanceAllTables(editorView.dom)
       }
       run()
       return { update: run }
