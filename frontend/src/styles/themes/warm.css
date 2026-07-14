@@ -1,5 +1,6 @@
 @layer tokens {
   [data-theme='warm'] {
+    color-scheme: light;
     --surface-1: #fbf6ec;
     --surface-2: #f4ecdc;
     --surface-3: #ead9be;

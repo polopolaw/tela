@@ -1,5 +1,6 @@
 @layer tokens {
   [data-theme='dark'] {
+    color-scheme: dark;
     --surface-1: #0f0f12;
     --surface-2: #16161b;
     --surface-3: #1f1f27;
