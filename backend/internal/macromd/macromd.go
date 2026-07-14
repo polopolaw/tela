@@ -80,6 +80,11 @@ func ParseMacroRefs(body string) []MacroRef {
 			continue
 		}
 		macroID := attrValue(t, "id")
+		if macroID == "" {
+			if l, r := strings.IndexByte(t, '{'), strings.LastIndexByte(t, '}'); l >= 0 && r > l {
+				macroID = hashMacroID(t[l+1 : r])
+			}
+		}
 		pageStr := attrValue(t, "page")
 		if macroID != "" {
 			key := "m:" + macroID
@@ -121,9 +126,99 @@ func newMacroID() string {
 	return "m_" + hex.EncodeToString(b)
 }
 
+// NormalizeMacroDirectives rewrites macro / macro-def openers so quoted id="m_…"
+// wins over a trailing Confluence #m_… hash. Frontend remark-directive prefers
+// the hash otherwise, which desyncs the editor from page_macros on save.
+func NormalizeMacroDirectives(body string) string {
+	lines := splitLines(body)
+	nl := "\n"
+	if strings.Contains(body, "\r\n") {
+		nl = "\r\n"
+	}
+	changed := false
+	for i := 0; i < len(lines); i++ {
+		t := strings.TrimSpace(lines[i])
+		if !strings.HasPrefix(t, ":::macro-def") && !strings.HasPrefix(t, ":::macro") {
+			continue
+		}
+		next := normalizeMacroOpenLine(lines[i])
+		if next != lines[i] {
+			lines[i] = next
+			changed = true
+		}
+	}
+	if !changed {
+		return body
+	}
+	return strings.Join(lines, nl)
+}
+
+func normalizeMacroOpenLine(line string) string {
+	trimmed := strings.TrimSpace(line)
+	var name string
+	switch {
+	case strings.HasPrefix(trimmed, ":::macro-def"):
+		name = "macro-def"
+	case strings.HasPrefix(trimmed, ":::macro"):
+		name = "macro"
+	default:
+		return line
+	}
+	lead := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+	openBrace := strings.IndexByte(trimmed, '{')
+	closeBrace := strings.LastIndexByte(trimmed, '}')
+	if openBrace < 0 || closeBrace <= openBrace {
+		return line
+	}
+	inner := trimmed[openBrace+1 : closeBrace]
+	tail := trimmed[closeBrace+1:]
+	quotedID := quotedAttrValue(inner, "id")
+	hashID := hashMacroID(inner)
+	canonicalID := quotedID
+	if canonicalID == "" {
+		canonicalID = hashID
+	}
+	pageID := attrValue(trimmed, "page")
+
+	if name == "macro-def" {
+		if canonicalID == "" {
+			return line
+		}
+		return lead + fmt.Sprintf(`:::macro-def{id=%q}`, canonicalID) + tail
+	}
+	if pageID != "" {
+		return lead + fmt.Sprintf(`:::macro{page=%s}`, pageID) + tail
+	}
+	if canonicalID == "" {
+		return line
+	}
+	return lead + fmt.Sprintf(`:::macro{id=%q}`, canonicalID) + tail
+}
+
+func quotedAttrValue(inner, key string) string {
+	prefix := key + "="
+	for _, tok := range strings.Fields(inner) {
+		if !strings.HasPrefix(tok, prefix) {
+			continue
+		}
+		return strings.Trim(tok[len(prefix):], `"'`)
+	}
+	return ""
+}
+
+func hashMacroID(inner string) string {
+	for _, tok := range strings.Fields(inner) {
+		if strings.HasPrefix(tok, "#m_") {
+			return strings.TrimPrefix(tok, "#")
+		}
+	}
+	return ""
+}
+
 // StampMacroDefIDs rewrites macro-def openers that lack an id attribute so saves
 // from any client (editor wrap, agents, pasted markdown) never 400.
 func StampMacroDefIDs(body string) string {
+	body = NormalizeMacroDirectives(body)
 	lines := splitLines(body)
 	nl := "\n"
 	if strings.Contains(body, "\r\n") {

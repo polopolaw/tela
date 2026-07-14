@@ -48,6 +48,39 @@ b
 	}
 }
 
+func TestNormalizeMacroDirectives(t *testing.T) {
+	body := `:::macro-def{id="m_51aeed39fe" #m_c4bfa2f1c0}
+Hello world 1
+:::
+
+:::macro{#m_b9712e3e8e}
+:::
+
+:::macro{#m_badc7e45d1}
+:::`
+	out := NormalizeMacroDirectives(body)
+	if !strings.Contains(out, `:::macro-def{id="m_51aeed39fe"}`) {
+		t.Fatalf("macro-def not normalized: %q", out)
+	}
+	if strings.Contains(out, "#m_c4bfa2f1c0") {
+		t.Fatalf("confluence hash leaked: %q", out)
+	}
+	if !strings.Contains(out, `:::macro{id="m_b9712e3e8e"}`) || !strings.Contains(out, `:::macro{id="m_badc7e45d1"}`) {
+		t.Fatalf("macro refs not normalized: %q", out)
+	}
+	defs, err := ParseMacroDefs(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(defs) != 1 || defs[0].ID != "m_51aeed39fe" {
+		t.Fatalf("defs: %+v", defs)
+	}
+	refs := ParseMacroRefs(out)
+	if len(refs) != 2 || refs[0].MacroID != "m_b9712e3e8e" || refs[1].MacroID != "m_badc7e45d1" {
+		t.Fatalf("refs: %+v", refs)
+	}
+}
+
 func TestStampMacroDefIDs(t *testing.T) {
 	body := `intro
 

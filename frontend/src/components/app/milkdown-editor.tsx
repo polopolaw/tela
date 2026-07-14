@@ -112,6 +112,7 @@ import {
   type MacroPickerRequest,
 } from './milkdown-macro'
 import { stampMacroDefIdsInMarkdown } from '../../lib/markdown/stamp-macro-def-ids'
+import { normalizeMacroDirectivesInMarkdown } from '../../lib/markdown/normalize-macro-directives'
 import { tableEnhancePlugin } from './milkdown-table'
 import { wikilinkPlugin, WikilinkView } from './milkdown-wikilink'
 import {
@@ -486,7 +487,7 @@ function MilkdownEditorInner({
     Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root)
-        ctx.set(defaultValueCtx, defaultValue)
+        ctx.set(defaultValueCtx, normalizeMacroDirectivesInMarkdown(defaultValue))
         ctx
           .get(listenerCtx)
           .markdownUpdated((_, md, prev) => {
@@ -1067,7 +1068,7 @@ function MilkdownEditorInner({
       if (fragment.length > 0) return
       editor.action((ctx) => {
         const parser = ctx.get(parserCtx)
-        const pmNode = parser(defaultValue)
+        const pmNode = parser(normalizeMacroDirectivesInMarkdown(defaultValue))
         if (pmNode) {
           prosemirrorToYXmlFragment(pmNode, fragment)
         }

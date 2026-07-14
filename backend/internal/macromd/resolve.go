@@ -63,6 +63,11 @@ func resolveBody(
 		}
 		if strings.HasPrefix(t, ":::macro") && !strings.HasPrefix(t, ":::macro-def") {
 			macroID := attrValue(t, "id")
+			if macroID == "" {
+				if l, r := strings.IndexByte(t, '{'), strings.LastIndexByte(t, '}'); l >= 0 && r > l {
+					macroID = hashMacroID(t[l+1 : r])
+				}
+			}
 			pageStr := attrValue(t, "page")
 			close, ok := macroBlockClose(lines, i)
 			if !ok {

@@ -891,7 +891,11 @@ function renderNode(node: MdNode, key: number | string): ReactNode {
           <MacroDefView key={key} node={node} renderChild={(n, i) => renderNode(n, i)} />
         )
       }
-      if (name === 'macro') return <MacroView key={key} node={node} />
+      if (name === 'macro') {
+        const attrs = directiveAttrs(node)
+        const macroKey = attrs.id || attrs.page || String(key)
+        return <MacroView key={`macro-${macroKey}`} node={node} />
+      }
       // Unknown directive — render its children so no content is lost. A
       // Fragment avoids wrapping (possibly block) content in an invalid element.
       return node.children ? (

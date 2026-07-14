@@ -9,6 +9,7 @@ import { collapsiblesRemark } from './transforms/collapsibles'
 import { highlightRemark } from './transforms/highlight'
 import { excalidrawRemark } from './transforms/excalidraw'
 import { wikilinkRemark } from './transforms/wikilink'
+import { normalizeMacroDirectivesInMarkdown } from './normalize-macro-directives'
 
 // Single parse source for the read-only VIEW renderer (docs/view-edit-split.md).
 //
@@ -43,5 +44,5 @@ function getProcessor() {
 // directive); `runSync` applies the mdast transformers (callouts, highlight).
 export function parsePageMarkdown(body: string): Root {
   const p = getProcessor()
-  return p.runSync(p.parse(body))
+  return p.runSync(p.parse(normalizeMacroDirectivesInMarkdown(body)))
 }

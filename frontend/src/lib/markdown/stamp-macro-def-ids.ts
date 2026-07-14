@@ -1,4 +1,5 @@
 import { newMacroId } from '../queries/macros'
+import { normalizeMacroDirectivesInMarkdown } from './normalize-macro-directives'
 
 function attrValue(line: string, key: string): string {
   const l = line.indexOf('{')
@@ -30,6 +31,7 @@ function stampOpenLine(line: string, id: string): string {
 
 /** Ensure every `:::macro-def` opener in canonical markdown carries `{id=…}`. */
 export function stampMacroDefIdsInMarkdown(body: string): string {
+  body = normalizeMacroDirectivesInMarkdown(body)
   const nl = body.includes('\r\n') ? '\r\n' : '\n'
   const lines = body.split(nl)
   let changed = false
