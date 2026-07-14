@@ -12,6 +12,11 @@ import {
   SheetTitle,
 } from '../ui/sheet'
 import { api, ApiError } from '../../lib/api'
+import {
+  DRAWIO_EXPORT_FORMAT,
+  pngBase64FromExport,
+  xmlFromExport,
+} from '../../lib/drawio/export'
 import { computeDrawioSceneHash } from '../../lib/drawio/hash'
 
 const DrawIoCanvas = lazy(() =>
@@ -52,14 +57,6 @@ function parseInitialAltText(raw: string): string {
   } catch {
     return ''
   }
-}
-
-function pngBase64FromExport(data: string): string {
-  const comma = data.indexOf(',')
-  if (data.startsWith('data:') && comma !== -1) {
-    return data.slice(comma + 1)
-  }
-  return data
 }
 
 export function DrawioEditSheet({
@@ -120,23 +117,24 @@ export function DrawioEditSheet({
             exportResolveRef.current = null
             reject(new Error('Export timed out'))
           }
-        }, 60_000)
+        }, 20_000)
       })
 
       drawioRef.current?.exportDiagram({
-        format: 'png',
+        format: DRAWIO_EXPORT_FORMAT,
         spin: true,
         border: '10',
+        scale: 1,
       })
 
       const exported = await exportPromise
-      const xml = exported.xml || latestXmlRef.current
-      if (!xml.trim()) {
-        throw new Error('Diagram is empty')
-      }
+      const xml = xmlFromExport(exported, latestXmlRef.current)
 
       const sceneHash = await computeDrawioSceneHash(xml)
       const pngBase64 = pngBase64FromExport(exported.data)
+      if (!pngBase64) {
+        throw new Error('Export returned no image data')
+      }
       await uploadDiagram(pageId, { scene_hash: sceneHash, png_base64: pngBase64 })
 
       const diagramId = initialDiagramId || crypto.randomUUID()
@@ -211,6 +209,8 @@ export function DrawioEditSheet({
                 <DrawIoCanvas
                   ref={drawioRef}
                   baseUrl={DRAWIO_BASE_URL}
+                  autosave
+                  exportFormat={DRAWIO_EXPORT_FORMAT}
                   urlParameters={{
                     ui: 'kennedy',
                     spin: true,
@@ -220,7 +220,10 @@ export function DrawioEditSheet({
                     noExitBtn: true,
                     dark: isDark,
                   }}
-                  onLoad={() => setEditorReady(true)}
+                  onLoad={(ev) => {
+                    latestXmlRef.current = ev.xml
+                    setEditorReady(true)
+                  }}
                   onAutoSave={(ev) => {
                     latestXmlRef.current = ev.xml
                   }}
@@ -237,7 +240,11 @@ export function DrawioEditSheet({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => void handleSave()} disabled={status === 'saving'}>
+          <Button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={status === 'saving' || !editorReady}
+          >
             {status === 'saving' ? 'Saving…' : 'Save'}
           </Button>
         </SheetFooter>
