@@ -248,7 +248,11 @@ export function useApplySuggestion() {
 export function useRejectSuggestion() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: { suggestionId: number; review_note?: string }) => {
+    mutationFn: async (input: {
+      suggestionId: number
+      pageId: number
+      review_note?: string
+    }) => {
       const { suggestion } = await api<{ suggestion: PageSuggestion }>(
         `/api/suggestions/${input.suggestionId}/reject`,
         {
@@ -258,8 +262,12 @@ export function useRejectSuggestion() {
       )
       return suggestion
     },
-    onSuccess: (suggestion) => {
-      invalidateSuggestionQueries(qc, suggestion.page_id, suggestion.id)
+    onSuccess: (suggestion, input) => {
+      invalidateSuggestionQueries(
+        qc,
+        suggestion.page_id ?? input.pageId,
+        suggestion.id ?? input.suggestionId,
+      )
     },
   })
 }
@@ -267,15 +275,19 @@ export function useRejectSuggestion() {
 export function useWithdrawSuggestion() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (suggestionId: number) => {
+    mutationFn: async (input: { suggestionId: number; pageId: number }) => {
       const { suggestion } = await api<{ suggestion: PageSuggestion }>(
-        `/api/suggestions/${suggestionId}/withdraw`,
+        `/api/suggestions/${input.suggestionId}/withdraw`,
         { method: 'POST', body: JSON.stringify({}) },
       )
       return suggestion
     },
-    onSuccess: (suggestion) => {
-      invalidateSuggestionQueries(qc, suggestion.page_id, suggestion.id)
+    onSuccess: (suggestion, input) => {
+      invalidateSuggestionQueries(
+        qc,
+        suggestion.page_id ?? input.pageId,
+        suggestion.id ?? input.suggestionId,
+      )
     },
   })
 }

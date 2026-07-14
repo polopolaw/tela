@@ -1,7 +1,5 @@
 package models
 
-import "encoding/json"
-
 type Org struct {
 	ID        int64  `json:"id"`
 	Name      string `json:"name"`
@@ -80,7 +78,7 @@ type PageSuggestion struct {
 	Status             string          `json:"status"`
 	Summary            *string         `json:"summary,omitempty"`
 	ReviewNote         *string         `json:"review_note,omitempty"`
-	AppliedHunks       json.RawMessage `json:"applied_hunks,omitempty"`
+	AppliedHunks       []string        `json:"applied_hunks,omitempty"`
 	ReviewedBy         *int64          `json:"reviewed_by,omitempty"`
 	ReviewedByUsername *string         `json:"reviewed_by_username,omitempty"`
 	ReviewedAt         *string         `json:"reviewed_at,omitempty"`

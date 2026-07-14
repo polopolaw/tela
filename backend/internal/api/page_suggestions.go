@@ -347,12 +347,12 @@ func (s *Server) applySuggestionCore(ctx context.Context, u *auth.User, k *auth.
 	if ae != nil {
 		return models.PageSuggestion{}, ae
 	}
-	rawChoices, err := json.Marshal(choices)
+	rawApplied, err := json.Marshal(applied)
 	if err != nil {
-		return models.PageSuggestion{}, &apiErr{http.StatusInternalServerError, "internal", "encode hunk choices failed"}
+		return models.PageSuggestion{}, &apiErr{http.StatusInternalServerError, "internal", "encode applied hunks failed"}
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE page_suggestions SET status='approved', review_note=$1, applied_hunks=$2::jsonb, reviewed_by=$3, reviewed_at=tela_now(), updated_at=tela_now() WHERE id=$4`,
-		nullableStringPtr(req.ReviewNote), string(rawChoices), u.ID, id); err != nil {
+		nullableStringPtr(req.ReviewNote), string(rawApplied), u.ID, id); err != nil {
 		return models.PageSuggestion{}, &apiErr{http.StatusInternalServerError, "internal", "approve suggestion failed"}
 	}
 	out, err := selectSuggestionByIDTx(ctx, tx, id)
@@ -474,10 +474,15 @@ func (s *Server) transitionSuggestion(w http.ResponseWriter, r *http.Request, st
 		writeError(w, 500, "internal", "commit failed")
 		return
 	}
+	out, err := selectSuggestionByID(r.Context(), s.DB, id)
+	if err != nil {
+		writeError(w, 500, "internal", "fetch updated suggestion failed")
+		return
+	}
 	if editor {
 		s.notifySuggestionRejected(r.Context(), u, page, suggestion)
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]any{"suggestion": out})
 }
 
 const suggestionSelectColumns = `SELECT s.id,s.page_id,s.author_id,a.username,s.title,s.body,s.props,s.base_revision_id,s.status,s.summary,s.review_note,s.applied_hunks,s.reviewed_by,r.username,s.reviewed_at,s.created_at,s.updated_at`
@@ -563,8 +568,15 @@ func scanSuggestion(r rowScanner) (models.PageSuggestion, error) {
 	if props.Valid && props.String != "" {
 		_ = json.Unmarshal([]byte(props.String), &s.Props)
 	}
-	if hunks.Valid {
-		s.AppliedHunks = json.RawMessage(hunks.String)
+	if hunks.Valid && hunks.String != "" && hunks.String != "null" {
+		var ids []string
+		if err := json.Unmarshal([]byte(hunks.String), &ids); err != nil {
+			// Legacy rows stored the reviewer choice map (object) before applied_hunks
+			// was narrowed to the list of accepted hunk IDs.
+			s.AppliedHunks = nil
+		} else {
+			s.AppliedHunks = ids
+		}
 	}
 	return s, nil
 }

@@ -131,7 +131,8 @@ func TestPageSuggestions_FullFlow(t *testing.T) {
 	}
 	var applied struct {
 		Suggestion struct {
-			Status string `json:"status"`
+			Status       string   `json:"status"`
+			AppliedHunks []string `json:"applied_hunks"`
 		} `json:"suggestion"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&applied); err != nil {
@@ -140,6 +141,9 @@ func TestPageSuggestions_FullFlow(t *testing.T) {
 	resp.Body.Close()
 	if applied.Suggestion.Status != "approved" {
 		t.Fatalf("suggestion status=%q want approved", applied.Suggestion.Status)
+	}
+	if len(applied.Suggestion.AppliedHunks) == 0 {
+		t.Fatalf("applied_hunks want non-empty array, got %v", applied.Suggestion.AppliedHunks)
 	}
 	if got := getPageField(t, carolC, simplePageURL, "body"); got != "hello universe" {
 		t.Fatalf("page body after apply = %q want hello universe", got)
@@ -209,7 +213,19 @@ func TestPageSuggestions_FullFlow(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		t.Fatalf("reject status=%d body=%s", resp.StatusCode, b)
 	}
+	var rejected struct {
+		Suggestion struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"suggestion"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&rejected); err != nil {
+		t.Fatalf("decode reject: %v", err)
+	}
 	resp.Body.Close()
+	if rejected.Suggestion.ID != rejectID || rejected.Suggestion.Status != "rejected" {
+		t.Fatalf("reject response=%+v", rejected.Suggestion)
+	}
 
 	resp, _ = postJSON(carolC, fmt.Sprintf("%s/api/suggestions/%d/withdraw", ts.URL, withdrawID), `{}`)
 	body, _ = io.ReadAll(resp.Body)
@@ -223,7 +239,19 @@ func TestPageSuggestions_FullFlow(t *testing.T) {
 		b, _ := io.ReadAll(resp.Body)
 		t.Fatalf("author withdraw status=%d body=%s", resp.StatusCode, b)
 	}
+	var withdrawn struct {
+		Suggestion struct {
+			ID     int64  `json:"id"`
+			Status string `json:"status"`
+		} `json:"suggestion"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&withdrawn); err != nil {
+		t.Fatalf("decode withdraw: %v", err)
+	}
 	resp.Body.Close()
+	if withdrawn.Suggestion.ID != withdrawID || withdrawn.Suggestion.Status != "withdrawn" {
+		t.Fatalf("withdraw response=%+v", withdrawn.Suggestion)
+	}
 
 	// 10. read-scope API key can POST create but cannot apply.
 	rawKey, prefix, _, err := auth.NewAPIKey(auth.LoadAPIKeySecret())

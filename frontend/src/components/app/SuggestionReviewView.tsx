@@ -211,6 +211,7 @@ function SuggestionReviewBody({
     void rejectSuggestion
       .mutateAsync({
         suggestionId: suggestion.id,
+        pageId,
         review_note: reviewNote.trim() || undefined,
       })
       .then(() => {
@@ -221,7 +222,10 @@ function SuggestionReviewBody({
   }
 
   const handleWithdraw = () => {
-    void withdrawSuggestion.mutateAsync(suggestion.id).then(goToPage).catch(() => {})
+    void withdrawSuggestion
+      .mutateAsync({ suggestionId: suggestion.id, pageId })
+      .then(goToPage)
+      .catch(() => {})
   }
 
   return (

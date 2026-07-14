@@ -951,3 +951,41 @@ func TestMCP_ResearchFiles(t *testing.T) {
 		t.Errorf("read_chunk file result missing download_url")
 	}
 }
+
+// TestMCP_SuggestionApply asserts apply_suggestion returns structured output that
+// validates against the tool schema (applied_hunks is a JSON array, not a map).
+func TestMCP_SuggestionApply(t *testing.T) {
+	ts, d := newWiredServer(t)
+	editor := seedUser(t, d, "carol", "carolpw12", false)
+	viewer := seedUser(t, d, "bob", "bobpw1234", false)
+	space := seedSpace(t, d, "Docs", "docs", editor)
+	seedMember(t, d, space, viewer, roleViewer)
+	pageID := seedPageInSpace(t, d, space, nil, "Page", "alpha\nbeta\ngamma")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	writeKey := seedReadKey(t, d, editor, auth.ScopeWrite)
+	sess := mcpSession(t, ctx, ts, writeKey)
+
+	var created suggestionOut
+	mcpCallJSON(t, ctx, sess, "create_suggestion", map[string]any{
+		"page_id": pageID,
+		"body":    "alpha\nBETA\ngamma",
+		"summary": "mcp apply test",
+	}, &created)
+	if created.Suggestion.Status != "open" {
+		t.Fatalf("create status=%q", created.Suggestion.Status)
+	}
+
+	var applied suggestionOut
+	mcpCallJSON(t, ctx, sess, "apply_suggestion", map[string]any{
+		"suggestion_id": created.Suggestion.ID,
+		"mode":          "full",
+	}, &applied)
+	if applied.Suggestion.Status != "approved" {
+		t.Fatalf("apply status=%q", applied.Suggestion.Status)
+	}
+	if len(applied.Suggestion.AppliedHunks) == 0 {
+		t.Fatalf("applied_hunks=%v want non-empty array", applied.Suggestion.AppliedHunks)
+	}
+}
