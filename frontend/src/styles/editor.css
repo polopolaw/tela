@@ -968,9 +968,15 @@
      right even when content overflows. */
   .tela-milkdown .ProseMirror .tableWrapper {
     overflow-x: auto;
+    max-width: 100%;
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-sm);
     margin: 0 0 var(--space-3);
+  }
+  .tela-milkdown .ProseMirror .tableWrapper > table {
+    margin: 0;
+    width: auto;
+    min-width: 100%;
   }
   .tela-milkdown .ProseMirror table {
     width: 100%;
@@ -978,9 +984,6 @@
     font-size: var(--text-sm);
     line-height: var(--leading-normal);
     color: var(--text-primary);
-  }
-  .tela-milkdown .ProseMirror .tableWrapper > table {
-    margin: 0;
   }
   .tela-milkdown .ProseMirror table th,
   .tela-milkdown .ProseMirror table td {
