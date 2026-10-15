@@ -17,13 +17,12 @@ import {
 // milkdown-emoji.ts, which auto-converts a fully-typed `:rocket:`.
 //
 // Positioning is managed manually (view.coordsAtPos + setShow/setPos),
-// mirroring milkdown-slash.tsx rather than the wikilink picker. We deliberately
-// do NOT use SlashProvider: its internal lodash.debounce wedges under our
+// mirroring milkdown-slash.tsx / milkdown-wikilink.tsx. We deliberately do
+// NOT use SlashProvider: its internal lodash.debounce wedges under our
 // React + Yjs + Vite setup, and the emoji dataset loads ASYNC — so the menu
 // only needs to appear on an update AFTER the data resolves, which is exactly
-// the update the wedged debounce swallows (the wikilink picker escapes this
-// because its page list is already cached on first `[[`). See the SlashView
-// comment block for the full rationale.
+// the update the wedged debounce swallows. See the SlashView comment block
+// for the full rationale.
 
 // eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const emojiAutocompletePlugin = slashFactory('tela-emoji')

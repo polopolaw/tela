@@ -2126,8 +2126,9 @@
 
   /* Wikilink autocomplete picker — same floating-popover language as the
      slash menu, with breadcrumb subtext per row and an inline space-name
-     chip on collision rows. Positioning is handled by SlashProvider via
-     @floating-ui; visibility is toggled via the `data-show` attribute. */
+     chip on collision rows. Positioning is manual (coordsAtPos +
+     positionFloating), same as slash/emoji — not SlashProvider. Visibility
+     is toggled via the `data-show` attribute. */
   .tela-wikilink-menu {
     position: fixed;
     z-index: 50;

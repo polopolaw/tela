@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { slashFactory, SlashProvider } from '@milkdown/kit/plugin/slash'
+import { slashFactory } from '@milkdown/kit/plugin/slash'
 import { usePluginViewContext } from '@prosemirror-adapter/react'
 import { useInstance } from '@milkdown/react'
 import { editorViewCtx } from '@milkdown/kit/core'
@@ -17,17 +17,21 @@ import {
   disambiguateBreadcrumbs,
   type DisambiguatedRow,
 } from '../../lib/disambiguateBreadcrumbs'
+import { positionFloating, setShow } from './milkdown-floating'
 
 // Floating caret-anchored page autocomplete. Two triggers feed the same
 // picker: `[[Page]]` (wiki-style) and `@Page` (mention-style) — both insert a
-// `[Title](tela://page/{id})` link, so a page-mention IS a page link. Mirrors
-// the slash plugin's shape (slashFactory + SlashProvider + capture-phase
-// keydown for nav). Saved markdown round-trips via the stock commonmark link
-// mark — M5.2a's `parseWikiLinks` regex picks those up to populate the
-// `page_links` table on save. People-mentions are deliberately out of scope
-// (no canonical-markdown serialization yet). The companion decoration plugin
-// lives in milkdown-wikilink-decoration.ts (separate file so react-refresh
-// allows a non-component constant export alongside this React view).
+// `[Title](tela://page/{id})` link, so a page-mention IS a page link.
+//
+// Positioning is managed manually (view.coordsAtPos + positionFloating),
+// mirroring milkdown-slash.tsx / milkdown-emoji-autocomplete.tsx. We do NOT
+// use SlashProvider: its internal lodash.debounce wedges under React + Yjs +
+// Vite (the 200ms timer keeps resetting and #onUpdate never fires), which is
+// exactly why `@` / `[[` felt intermittent — the slash menu already hit this
+// and was rewritten; the wikilink picker was still on the wedged provider.
+//
+// Saved markdown round-trips via the stock commonmark link mark —
+// `parseWikiLinks` picks those up to populate `page_links` on save.
 
 // eslint-disable-next-line react-refresh/only-export-components -- milkdown plugin slice lives with its view
 export const wikilinkPlugin = slashFactory('tela-wikilink')
@@ -36,7 +40,7 @@ export const wikilinkPlugin = slashFactory('tela-wikilink')
 
 interface WikilinkTrigger {
   query: string
-  // Offset of the trigger's first char within the parent paragraph — the `[`
+  // Offset of the trigger's first char within the parent textblock — the `[`
   // of `[[` or the `@`. Insertion replaces from here to the cursor, so the
   // trigger text itself is consumed regardless of which form opened the picker.
   openOffset: number
@@ -52,11 +56,22 @@ function triggerPrecededOk(text: string, idx: number): boolean {
   return !prev || /\s/.test(prev)
 }
 
+// Any textblock that can hold a link mark — paragraphs, headings, list-item
+// paragraphs, blockquotes. Excludes code fences where `@` / `[[` are literal.
+function isLinkableTextblock(view: EditorView): boolean {
+  const { $from } = view.state.selection
+  const parent = $from.parent
+  if (!parent.isTextblock) return false
+  const name = parent.type.name
+  if (name === 'code_block' || name === 'fence') return false
+  return true
+}
+
 function readWikilinkState(view: EditorView): WikilinkTrigger | null {
   const { selection } = view.state
   const { empty, $from } = selection
   if (!empty) return null
-  if ($from.parent.type.name !== 'paragraph') return null
+  if (!isLinkableTextblock(view)) return null
   const text = $from.parent.textBetween(0, $from.parentOffset, undefined, '￼')
 
   const candidates: WikilinkTrigger[] = []
@@ -94,19 +109,23 @@ type PickerRow = DisambiguatedRow<PageListItem>
 function filterRows(rows: PickerRow[], query: string): PickerRow[] {
   const q = query.trim().toLowerCase()
   if (q === '') return rows
-  // Simple substring match against title + space + breadcrumb tokens. With
-  // the v0 <100-pages ceiling baked into `/api/pages/all`, this stays
-  // comfortably under a millisecond and keeps the picker dependency-free.
-  return rows.filter((r) => {
-    const haystack = [
-      r.item.title,
-      r.item.space_name,
-      ...r.item.breadcrumb,
-    ]
+  // Rank: title prefix → title substring → breadcrumb/space match. Keeps the
+  // picker dependency-free; with a few hundred pages this stays sub-ms.
+  const scored: { row: PickerRow; score: number }[] = []
+  for (const r of rows) {
+    const title = (r.item.title || '').toLowerCase()
+    const haystack = [r.item.space_name, ...r.item.breadcrumb]
       .join(' ')
       .toLowerCase()
-    return haystack.includes(q)
-  })
+    let score = 0
+    if (title.startsWith(q)) score = 3
+    else if (title.includes(q)) score = 2
+    else if (haystack.includes(q)) score = 1
+    else continue
+    scored.push({ row: r, score })
+  }
+  scored.sort((a, b) => b.score - a.score)
+  return scored.map((s) => s.row)
 }
 
 // ---------- Insertion --------------------------------------------------------
@@ -188,13 +207,12 @@ interface PickerState {
 
 export function WikilinkView() {
   const ref = useRef<HTMLDivElement>(null)
-  const providerRef = useRef<SlashProvider | null>(null)
   // Escape latches a dismissed-offset; while the active trigger still starts
   // at that offset, the picker stays hidden so the user can keep typing or
   // delete the `[[…` manually. A new `[[` token at a different offset (or
   // dropping the trigger entirely) clears the latch.
   const dismissedOffsetRef = useRef<number | null>(null)
-  const { view, prevState } = usePluginViewContext()
+  const { view } = usePluginViewContext()
   const [loading, getEditor] = useInstance()
 
   const { data: pages } = useAllPages()
@@ -223,36 +241,23 @@ export function WikilinkView() {
     return [...userItems, ...pageItems]
   }, [rows, users, query, trigger])
 
+  // Move the menu out of the editor DOM so PM doesn't manage it (mirrors
+  // SlashView / EmojiAutocompleteView).
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const provider = new SlashProvider({
-      content: el,
-      shouldShow(v) {
-        if (!v.hasFocus()) return false
-        if (!v.editable) return false
-        const trigger = readWikilinkState(v)
-        if (!trigger) return false
-        if (dismissedOffsetRef.current === trigger.openOffset) return false
-        return true
-      },
-      floatingUIOptions: { strategy: 'fixed' },
-    })
-    providerRef.current = provider
-    return () => {
-      provider.destroy()
-      providerRef.current = null
-    }
-  }, [])
+    const parent = view.dom.parentElement
+    if (parent && el.parentElement !== parent) parent.appendChild(el)
+  }, [view])
 
   // Outside-click / focus-leave dismissal. Row mousedown handlers call
   // preventDefault(), so picking a row never blurs the editor and never
-  // trips this listener. Anything else (sidebar click, breadcrumb click,
-  // tab away) blurs the editor's contenteditable → hide the picker.
+  // trips this listener.
   useEffect(() => {
     const dom = view.dom
     const onBlur = () => {
-      providerRef.current?.hide()
+      const el = ref.current
+      if (el) setShow(el, false)
       setPickerState((prev) =>
         prev.visible
           ? { visible: false, query: '', openOffset: -1, trigger: 'bracket' }
@@ -263,15 +268,15 @@ export function WikilinkView() {
     return () => dom.removeEventListener('blur', onBlur)
   }, [view])
 
-  // Mirror trigger state into React on every editor update; SlashProvider
-  // toggles `data-show` based on the same predicate. The dismissed-offset
-  // latch is cleared whenever the trigger goes away — so the next `[[` token
-  // at any offset re-arms the picker.
+  // Per-render: read trigger from the live view, then show + position (or hide).
+  // No SlashProvider — debounce-free, same path as `/` and `:emoji:`.
   useEffect(() => {
-    providerRef.current?.update(view, prevState)
+    const el = ref.current
+    if (!el) return
     const next = readWikilinkState(view)
     if (next == null) {
       dismissedOffsetRef.current = null
+      setShow(el, false)
       // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs PM picker state, identity-guarded
       setPickerState((prev) =>
         prev.visible
@@ -280,8 +285,9 @@ export function WikilinkView() {
       )
       return
     }
-    if (dismissedOffsetRef.current === next.openOffset) {
-      // Still dismissed for this trigger position — keep React state hidden.
+    const dismissed = dismissedOffsetRef.current === next.openOffset
+    if (dismissed) {
+      setShow(el, false)
       setPickerState((prev) =>
         prev.visible
           ? { visible: false, query: '', openOffset: -1, trigger: 'bracket' }
@@ -289,8 +295,19 @@ export function WikilinkView() {
       )
       return
     }
-    // New or live trigger — clear any stale latch and mirror state.
+    const shouldShow = view.hasFocus() && view.editable
+    if (!shouldShow) {
+      setShow(el, false)
+      setPickerState((prev) =>
+        prev.visible
+          ? { visible: false, query: '', openOffset: -1, trigger: 'bracket' }
+          : prev,
+      )
+      return
+    }
     dismissedOffsetRef.current = null
+    const coords = view.coordsAtPos(view.state.selection.from)
+    setShow(el, true)
     setPickerState((prev) =>
       prev.visible &&
       prev.query === next.query &&
@@ -303,6 +320,11 @@ export function WikilinkView() {
             openOffset: next.openOffset,
             trigger: next.trigger,
           },
+    )
+    return positionFloating(
+      el,
+      { top: coords.top, bottom: coords.bottom, left: coords.left },
+      { place: 'below', align: 'start', clampVertical: true },
     )
   })
 
@@ -318,9 +340,24 @@ export function WikilinkView() {
     setActiveIdx(0)
   }, [query])
 
+  useEffect(() => {
+    if (!visible) return
+    const active = ref.current?.querySelector(
+      '[aria-selected="true"]',
+    ) as HTMLElement | null
+    active?.scrollIntoView({ block: 'nearest', behavior: 'instant' })
+  }, [activeIdx, visible])
+
   const runInsert = useCallback(
     (item: PickerItem) => {
       if (loading) return
+      const el = ref.current
+      if (el) setShow(el, false)
+      setPickerState((prev) =>
+        prev.visible
+          ? { visible: false, query: '', openOffset: -1, trigger: 'bracket' }
+          : prev,
+      )
       const editor = getEditor()
       editor?.action((ctx) => {
         const v = ctx.get(editorViewCtx)
@@ -367,7 +404,8 @@ export function WikilinkView() {
           openOffset: -1,
           trigger: 'bracket',
         })
-        providerRef.current?.hide()
+        const el = ref.current
+        if (el) setShow(el, false)
       }
     }
     document.addEventListener('keydown', onKey, true)
